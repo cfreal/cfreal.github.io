@@ -287,7 +287,7 @@ ap_scoreboard_image-&amp;gt;parent[2]-&amp;gt;bucket = -30000 -&amp;gt; 0x7faabb
 
 &lt;p&gt;This multiplies our success rate by the number of apache workers. Upon respawn, only one worker have a valid &lt;code&gt;bucket&lt;/code&gt; number, but this is not a problem because the others will crash, and immediately respawn.&lt;/p&gt;
 &lt;h3&gt;Success rate&lt;/h3&gt;
-&lt;p&gt;Different Apache servers have different number of workers. Having more workers mean we can spray the address of our mutex over less memory, but it also means we can specify more &lt;code&gt;index&lt;/code&gt; for &lt;code&gt;all_buckets&lt;/code&gt;. This means that having more workers improves our success rate. After a few tries on my test Apache server of 4 workers (default), I had &lt;strong&gt;~80% success rate&lt;/strong&gt;. The success rate jumps to ~100% with more workers.&lt;/p&gt;
+&lt;p&gt;Different Apache servers have different number of workers. Having more workers mean we can spray the address of our mutex over less memory, but it also means we can specify more &lt;code&gt;index&lt;/code&gt; for &lt;code&gt;all_buckets&lt;/code&gt;. This means that having more workers improves our success rate. After a few tries on my test Apache server of 4 workers (default), I had &lt;strong&gt;~80% success rate&lt;/strong&gt;. The success rate jumps to &lt;strong&gt;~100% with more workers&lt;/strong&gt;.&lt;/p&gt;
 &lt;p&gt;Again, if the exploit fails, it can be restarted the next day as Apache will still restart properly. Apache's &lt;code&gt;error.log&lt;/code&gt; will nevertheless contain notifications about its workers segfaulting.&lt;/p&gt;
 &lt;h2&gt;4. Await 6:25AM for the exploit to trigger&lt;/h2&gt;
 &lt;p&gt;Well, that's the easy step.&lt;/p&gt;
