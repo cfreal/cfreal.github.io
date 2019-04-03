@@ -117,7 +117,7 @@ This results in an &lt;strong&gt;arbitrary function call as root&lt;/strong&gt;.
 - &lt;code&gt;all_buckets&lt;/code&gt; is reallocated after a graceful restart (!)&lt;/p&gt;
 &lt;h2&gt;1. Obtain R/W access on a worker process&lt;/h2&gt;
 &lt;h3&gt;PHP UAF 0-day&lt;/h3&gt;
-&lt;p&gt;Since &lt;code&gt;mod_prefork&lt;/code&gt; is often used in combination with &lt;code&gt;mod_php&lt;/code&gt;, it seems natural to exploit the vulnerability through PHP. &lt;a href=""&gt;CVE-2019-6977&lt;/a&gt; would be a perfect candidate, but it was not out when I started writing the exploit. I went with a 0day UAF in PHP 7.x (which seems to work in PHP5.x as well):&lt;/p&gt;
+&lt;p&gt;Since &lt;code&gt;mod_prefork&lt;/code&gt; is often used in combination with &lt;code&gt;mod_php&lt;/code&gt;, it seems natural to exploit the vulnerability through PHP. &lt;a href="https://github.com/cfreal/exploits/tree/master/CVE-2019-6977-imagecolormatch"&gt;CVE-2019-6977&lt;/a&gt; would be a perfect candidate, but it was not out when I started writing the exploit. I went with a 0day UAF in PHP 7.x (which seems to work in PHP5.x as well):&lt;/p&gt;
 &lt;p&gt;&lt;em&gt;PHP UAF&lt;/em&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="cp"&gt;&amp;lt;?php&lt;/span&gt;
 
