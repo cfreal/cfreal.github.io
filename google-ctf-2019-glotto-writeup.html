@@ -6,29 +6,40 @@
 		<meta http-equiv="content-type" content="text/html; charset=utf-8">
 
 		<!-- Metadata -->
-	<meta name="description" content="Google CTF Quals 2019: GLotto Writeup">
-	<meta property="og:description" content="Google CTF Quals 2019: GLotto Writeup">
+	<meta name="description" content="Hacker.<br/>
+Maintainer of <a href="https://github.com/ambionics/phpggc">PHPGGC</a>, <a href="https://github.com/cfreal/ten">ten</a>...<br/>
+Previous <a href="/pages/research.html">research</a>.
+">
+	<meta property="og:description" content="Hacker.<br/>
+Maintainer of <a href="https://github.com/ambionics/phpggc">PHPGGC</a>, <a href="https://github.com/cfreal/ten">ten</a>...<br/>
+Previous <a href="/pages/research.html">research</a>.
+">
 	<meta property="og:title" content="Google CTF Quals 2019: GLotto Writeup" />
 	<meta property="og:type" content="article" />
-	<meta property="og:url" content="https://cfreal.github.io/google-ctf-2019-glotto-writeup.html" />
-		<meta property="og:image" content="https://cfreal.github.io/images/profile.jpg" />
+	<meta property="og:url" content="/google-ctf-2019-glotto-writeup.html" />
+		<meta property="og:image" content="/images/profile.jpg" />
 
 		<!-- Enable responsiveness on mobile devices-->
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 
-		<title>cfreal</title>
+		<title>cfreal's blog</title>
 
 		<!-- CSS -->
 		<link href="//fonts.googleapis.com/" rel="dns-prefetch">
 		<link href="//fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic|Abril+Fatface|PT+Sans:400,400italic,700&amp;subset=latin,latin-ext" rel="stylesheet">
 
-		<link rel="stylesheet" href="https://cfreal.github.io/theme/css/poole.css" />
-		<link rel="stylesheet" href="https://cfreal.github.io/theme/css/hyde.css" />
-		<link rel="stylesheet" href="https://cfreal.github.io/theme/css/syntax.css" />
-		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
 
-		<!-- RSS -->
-		<link rel="alternate" type="application/rss+xml" title="RSS" href="/atom.xml">
+		<link rel="stylesheet" href="/theme/css/poole.css" />
+		<link rel="stylesheet" href="/theme/css/hyde.css" />
+		<link rel="stylesheet" href="/theme/css/syntax.css" />
+		<link rel="stylesheet" href="/theme/css/style.css" />
+			<link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.7.1/css/all.css" crossorigin="anonymous">
+
+		<!-- Feeds -->
+<link href="/feeds/all.atom.xml" type="application/atom+xml" rel="alternate" title="cfreal's blog Full Atom Feed" />
+<link href="/feeds/articles.atom.xml" type="application/atom+xml" rel="alternate" title="cfreal's blog Categories Atom Feed" />
+
+		<!-- Analytics -->
 	</head>
 
 	<body class="theme-base-0d">
@@ -38,42 +49,38 @@
 
 			<h1>
 				<a href="/">
-					<img class="profile-picture" src="https://cfreal.github.io/images/profile.jpg">
-					cfreal
+					<img class="profile-picture" src="/images/profile.jpg">
+					cfreal's blog
 				</a>
 			</h1>
 			<p class="lead"></p>
-			<p class="lead">
-Charles Fol<br />
-Security engineer at <a href="https://ambionics.io/blog">Ambionics</a>.<br />
-Maintainer of <a href="https://github.com/ambionics/phpggc">PHPGGC</a>.<br />
-List of <a href="https://cfreal.github.io/pages/cves-exploits.html">CVEs and exploits</a>.<br />
- </p>
+			<p class="lead">Hacker.<br/>
+Maintainer of <a href="https://github.com/ambionics/phpggc">PHPGGC</a>, <a href="https://github.com/cfreal/ten">ten</a>...<br/>
+Previous <a href="/pages/research.html">research</a>.
+</p>
 			<p></p>
 		</div>
-		<nav class="sidebar-nav">
-					<a class="sidebar-nav-item" href="https://twitter.com/cfreal_">
-						<i class="fa fa-twitter"></i>
+		<nav class="sidebar-social">
+					<a class="sidebar-social-item" href="https://twitter.com/cfreal_" target="_blank">
+						<i class="fab fa-twitter"></i>
 					</a>
-					<a class="sidebar-nav-item" href="http://github.com/cfreal">
-						<i class="fa fa-github"></i>
+					<a class="sidebar-social-item" href="https://bsky.app/profile/cfreal.bsky.social" target="_blank">
+						<i class="fab fa-bluesky"></i>
 					</a>
-					<a class="sidebar-nav-item" href="https://www.linkedin.com/in/charles-fol-85996b125/">
-						<i class="fa fa-linkedin"></i>
+					<a class="sidebar-social-item" href="https://www.linkedin.com/in/charles-fol-85996b125" target="_blank">
+						<i class="fab fa-linkedin"></i>
 					</a>
-			<a class="sidebar-nav-item" href="">
-				<i class="fa fa-feed"></i>
-			</a>
+					<a class="sidebar-social-item" href="https://github.com/cfreal" target="_blank">
+						<i class="fab fa-github"></i>
+					</a>
 		</nav>
 	</div>
 </div>		<div class="content container">
 <div class="post">
 	<h1 class="post-title">Google CTF Quals 2019: GLotto Writeup</h1>
-	<span class="post-date">2019-06-27</span>
+	<span class="post-date">jeu. 27 juin 2019</span>
 	<h1>Introduction</h1>
-<p>The Google CTF 2019 Quals happened this week-end and a friend told me about the GLotto web challenge, which seemed really fun. Can you imagine this ? A <em>fun</em> web challenge ! 
-I had a go at it and here's my writeup. The idea is to push an ORDER BY SQL injection to the limit, in order to get as much information as possible. This involves a little bit of math,
-and a little bit of SQL dance.</p>
+<p>The Google CTF 2019 Quals happened this week-end and a friend told me about the GLotto web challenge, which seemed really fun. Can you imagine this ? A <em>fun</em> web challenge ! I had a go at it and here's my writeup. The idea is to push an ORDER BY SQL injection to the limit, in order to get as much information as possible. This involves a little bit of math, and a little bit of SQL dance.</p>
 <h1>Challenge</h1>
 <h2>Web page</h2>
 <p>Upon browsing to <a href="https://glotto.web.ctfcompetition.com/">https://glotto.web.ctfcompetition.com/</a>, we're presented with a page that contains multiple winning lottery tickets for different dates. There are 4 tables, one for each of the four last months. We're allowed to sort the 4 different tables by their columns, and can submit a ticket in order to know if we won the lottery. The source code of the page is reachable <a href="https://glotto.web.ctfcompetition.com/?src">here</a>.</p>
@@ -96,153 +103,132 @@ and a little bit of SQL dance.</p>
 <p>Imagine you have 8 boxes (the positions for the columns), aligned from left to right, in which you want to put 8 different numbers, from 0 to 7 (the columns). You first focus on the first (the left-most, for instance) box. You can put in any of the 8 numbers. You pick one, put it in, and go to the next box. You can then put any of the 7 remaining numbers in. You then go to the third box, in which you can put any of the 6 remaining numbers, etc. When reaching the last box, you have only one number left, and have no choice but to put it in. This therefore gives you the following amount of choices: 8 for the first box, then 7, then 6, etc., until 1. Each of the choices you make influences the next: if you put number 1 in the first box, it cannot be put in any of the other boxes. Therefore, you get <code>8 * 7 * 6 * 5 * 4 * 3 * 2 * 1 = 8!</code> choices.</p>
 <h3>Encoding</h3>
 <p>Let <code>N</code> be the number that we wish to encode. For the first box, we have 8 choices. We can therefore split <code>N</code> into <strong>8 subparts</strong>, and associate a number from <code>0</code> to <code>7</code> to it. To do so, we can simply perform the operation: <code>r8 = N % 8</code>. Indeed, if <code>r8</code> is <code>0</code>, this means that <code>N</code> is in the first of the 8 subparts. If <code>r8</code> is <code>1</code>, <code>N</code> is in the second subpart, etc. This gives us 8 different "parts", as we wanted. Since we've encoded part of our number into 8 possible values for the first box, we can jump to the next one.</p>
-<p>By definition, <code>r8 = N % 8</code> yields the following equation: <code>N = d8 * 8 + r8</code>, with <code>d8</code> an unknown integer.
-In the second box, we can only put 7 values. Therefore, we need to split the remaining unknown number, <code>d8</code>, into 7 parts. Again, this can be done by using <code>r7 = d8 % 7</code>. Again, this yields the equation: <code>d8 = d7 * 7 + r7</code>. And again, we can move to the next box.</p>
+<p>By definition, <code>r8 = N % 8</code> yields the following equation: <code>N = d8 * 8 + r8</code>, with <code>d8</code> an unknown integer. In the second box, we can only put 7 values. Therefore, we need to split the remaining unknown number, <code>d8</code>, into 7 parts. Again, this can be done by using <code>r7 = d8 % 7</code>. Again, this yields the equation: <code>d8 = d7 * 7 + r7</code>. And again, we can move to the next box.</p>
 <p>Iterating over boxes, we get the following system:</p>
-<div class="highlight"><pre><span></span><span class="n">N</span>  <span class="o">=</span> <span class="n">d8</span> <span class="o">*</span> <span class="mi">8</span> <span class="o">+</span> <span class="n">r8</span><span class="p">,</span> <span class="n">r8</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">7</span><span class="p">]</span>
-<span class="n">d8</span> <span class="o">=</span> <span class="n">d7</span> <span class="o">*</span> <span class="mi">7</span> <span class="o">+</span> <span class="n">r7</span><span class="p">,</span> <span class="n">r7</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">]</span>
-<span class="n">d7</span> <span class="o">=</span> <span class="n">d6</span> <span class="o">*</span> <span class="mi">6</span> <span class="o">+</span> <span class="n">r6</span><span class="p">,</span> <span class="n">r6</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">]</span>
-<span class="n">d6</span> <span class="o">=</span> <span class="n">d5</span> <span class="o">*</span> <span class="mi">5</span> <span class="o">+</span> <span class="n">r5</span><span class="p">,</span> <span class="n">r5</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>
-<span class="n">d5</span> <span class="o">=</span> <span class="n">d4</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">+</span> <span class="n">r4</span><span class="p">,</span> <span class="n">r4</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
-<span class="n">d4</span> <span class="o">=</span> <span class="n">d3</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="n">r3</span><span class="p">,</span> <span class="n">r3</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
-<span class="n">d3</span> <span class="o">=</span> <span class="n">d2</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">r2</span><span class="p">,</span> <span class="n">r2</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
-<span class="n">d2</span> <span class="o">=</span> <span class="mi">0</span>
-</pre></div>
+<div class="highlight"><pre><span></span><code>N  = d8 * 8 + r8, r8 in [0, 7]
+d8 = d7 * 7 + r7, r7 in [0, 6]
+d7 = d6 * 6 + r6, r6 in [0, 5]
+d6 = d5 * 5 + r5, r5 in [0, 4]
+d5 = d4 * 4 + r4, r4 in [0, 3]
+d4 = d3 * 3 + r3, r3 in [0, 2]
+d3 = d2 * 2 + r2, r2 in [0, 1]
+d2 = 0
+</code></pre></div>
 
-
-<p>Now, by definition, <code>r8</code>, <code>r7</code>, up until <code>r2</code> are the numbers that we have put in the boxes. In other words, they are the date columns displayed on the web page, in a specific order.
-For instance, if <code>r8</code> is 3, we'll put the third date (<code>2019-03-05</code>) at index 8 in the SQL result. If <code>r7</code> is 4, it means that the fourth date (<code>2019-03-10</code>) is at index 7 in the SQL result, etc. In essence, we transmitted <code>r8</code> to <code>r2</code> through the injection <em>(we'll see later that's it's a bit tougher)</em>.</p>
+<p>Now, by definition, <code>r8</code>, <code>r7</code>, up until <code>r2</code> are the numbers that we have put in the boxes. In other words, they are the date columns displayed on the web page, in a specific order. For instance, if <code>r8</code> is 3, we'll put the third date (<code>2019-03-05</code>) at index 8 in the SQL result. If <code>r7</code> is 4, it means that the fourth date (<code>2019-03-10</code>) is at index 7 in the SQL result, etc. In essence, we transmitted <code>r8</code> to <code>r2</code> through the injection <em>(we'll see later that's it's a bit tougher)</em>.</p>
 <h3>Decoding</h3>
 <p>Now, how do we reconstruct N from our <code>r</code>s ? This is easily done by working our way up the equation system:</p>
 <p>Example:</p>
-<div class="highlight"><pre><span></span><span class="n">r</span> <span class="o">=</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code>r = [3, 1, 4, 3, 0, 2, 1]
 
-<span class="n">N</span>  <span class="o">=</span> <span class="n">d8</span> <span class="o">*</span> <span class="mi">8</span> <span class="o">+</span> <span class="mi">7</span> <span class="o">|</span> <span class="mi">34843</span> <span class="o">=</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">4355</span> <span class="o">+</span> <span class="mi">3</span>
-<span class="n">d8</span> <span class="o">=</span> <span class="n">d7</span> <span class="o">*</span> <span class="mi">7</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">|</span>  <span class="mi">4355</span> <span class="o">=</span> <span class="mi">7</span> <span class="o">*</span> <span class="mi">622</span> <span class="o">+</span> <span class="mi">1</span>
-<span class="n">d7</span> <span class="o">=</span> <span class="n">d6</span> <span class="o">*</span> <span class="mi">6</span> <span class="o">+</span> <span class="mi">5</span> <span class="o">|</span>   <span class="mi">622</span> <span class="o">=</span> <span class="mi">6</span> <span class="o">*</span> <span class="mi">103</span> <span class="o">+</span> <span class="mi">4</span>
-<span class="n">d6</span> <span class="o">=</span> <span class="n">d5</span> <span class="o">*</span> <span class="mi">5</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">|</span>   <span class="mi">103</span> <span class="o">=</span> <span class="mi">5</span> <span class="o">*</span> <span class="mi">20</span> <span class="o">+</span> <span class="mi">3</span>
-<span class="n">d5</span> <span class="o">=</span> <span class="n">d4</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">|</span>   <span class="mi">20</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">5</span> <span class="o">+</span> <span class="mi">0</span>
-<span class="n">d4</span> <span class="o">=</span> <span class="n">d3</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">|</span>    <span class="mi">5</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="mi">1</span> <span class="o">+</span> <span class="mi">2</span>
-<span class="n">d3</span> <span class="o">=</span> <span class="n">d2</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">|</span>    <span class="mi">1</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">0</span> <span class="o">+</span> <span class="mi">1</span>
-<span class="n">d2</span> <span class="o">=</span> <span class="mi">0</span>          <span class="o">|</span> <span class="n">we</span> <span class="k">work</span> <span class="n">our</span> <span class="n">way</span> <span class="n">up</span> <span class="o">^</span>
-</pre></div>
-
+N  = d8 * 8 + 7 | 34843 = 8 * 4355 + 3
+d8 = d7 * 7 + 1 |  4355 = 7 * 622 + 1
+d7 = d6 * 6 + 5 |   622 = 6 * 103 + 4
+d6 = d5 * 5 + 3 |   103 = 5 * 20 + 3
+d5 = d4 * 4 + 2 |   20 = 4 * 5 + 0
+d4 = d3 * 3 + 2 |    5 = 3 * 1 + 2
+d3 = d2 * 2 + 1 |    1 = 2 * 0 + 1
+d2 = 0          | we work our way up ^
+</code></pre></div>
 
 <p>here, N is <code>34843</code>.</p>
 <h3>Transmitting</h3>
-<p>Now, we'd like to think that we are almost done; nevertheless, there is a small problem that needs to be solved. In the above example, the values I want to transmit are the following:
-<code>3, 1, 4, 3, 0, 2, 1</code>. So, in the first box, I put <code>3</code>. In the second, I put <code>1</code>. In the third, <code>4</code>. And in the fourth, I put <code>3</code> again... but I can't, because <code>3</code> is already in the second box !</p>
+<p>Now, we'd like to think that we are almost done; nevertheless, there is a small problem that needs to be solved. In the above example, the values I want to transmit are the following: <code>3, 1, 4, 3, 0, 2, 1</code>. So, in the first box, I put <code>3</code>. In the second, I put <code>1</code>. In the third, <code>4</code>. And in the fourth, I put <code>3</code> again... but I can't, because <code>3</code> is already in the second box !</p>
 <p>Well, that's the thing. We don't put the exact number in the box, I put <code>n</code>th number that is left. Let's go back to our example:</p>
-<div class="highlight"><pre><span></span><span class="n">B</span>  <span class="n">r</span>  <span class="n">Numbers</span> <span class="k">left</span>     <span class="n">PUT</span>
-<span class="mi">0</span>  <span class="mi">3</span>  <span class="mi">0</span> <span class="mi">1</span> <span class="mi">2</span> <span class="mi">3</span> <span class="mi">4</span> <span class="mi">5</span> <span class="mi">6</span> <span class="mi">7</span>  <span class="mi">3</span>
-<span class="mi">1</span>  <span class="mi">1</span>  <span class="mi">0</span> <span class="mi">1</span> <span class="mi">2</span>   <span class="mi">4</span> <span class="mi">5</span> <span class="mi">6</span> <span class="mi">7</span>  <span class="mi">1</span>
-<span class="mi">2</span>  <span class="mi">4</span>  <span class="mi">0</span>   <span class="mi">2</span>   <span class="mi">4</span> <span class="mi">5</span> <span class="mi">6</span> <span class="mi">7</span>  <span class="mi">6</span>
-<span class="mi">3</span>  <span class="mi">3</span>  <span class="mi">0</span>   <span class="mi">2</span>   <span class="mi">4</span> <span class="mi">5</span>   <span class="mi">7</span>  <span class="mi">5</span>
-<span class="mi">4</span>  <span class="mi">0</span>  <span class="mi">0</span>   <span class="mi">2</span>   <span class="mi">4</span>     <span class="mi">7</span>  <span class="mi">0</span>
-<span class="mi">5</span>  <span class="mi">2</span>      <span class="mi">2</span>   <span class="mi">4</span>     <span class="mi">7</span>  <span class="mi">7</span>
-<span class="mi">6</span>  <span class="mi">1</span>      <span class="mi">2</span>   <span class="mi">4</span>        <span class="mi">4</span>
-<span class="mi">7</span>  <span class="mi">0</span>      <span class="mi">2</span>            <span class="mi">2</span>
-</pre></div>
-
+<div class="highlight"><pre><span></span><code>B  r  Numbers left     PUT
+0  3  0 1 2 3 4 5 6 7  3
+1  1  0 1 2   4 5 6 7  1
+2  4  0   2   4 5 6 7  6
+3  3  0   2   4 5   7  5
+4  0  0   2   4     7  0
+5  2      2   4     7  7
+6  1      2   4        4
+7  0      2            2
+</code></pre></div>
 
 <p>Regarding our SQL query, this translates as: In the topmost column, we have date number <code>3</code> (<code>2019-03-10</code>). In the second, date number <code>1</code> (<code>2019-03-03</code>), etc.</p>
-<p>Now, to convert the table we obtain after our SQLi into the real remainders <code>r2</code> to <code>r8</code>, we can:
-1. Read each column for the March table, and convert the dates into their associated index <code>D = [3, 1, 6, 5, 0, 7, 4, 2]</code>.
-2. Keep a list <code>L</code> of numbers that are left: <code>L = [0, 1, 2, 3, 4, 5, 6, 7]</code>.
-3. For each index in <code>D</code>, find its position in <code>L</code>, then remove it from <code>L</code>.</p>
+<p>Now, to convert the table we obtain after our SQLi into the real remainders <code>r2</code> to <code>r8</code>, we can: 1. Read each column for the March table, and convert the dates into their associated index <code>D = [3, 1, 6, 5, 0, 7, 4, 2]</code>. 2. Keep a list <code>L</code> of numbers that are left: <code>L = [0, 1, 2, 3, 4, 5, 6, 7]</code>. 3. For each index in <code>D</code>, find its position in <code>L</code>, then remove it from <code>L</code>.</p>
 <p>This gives us:</p>
-<div class="highlight"><pre><span></span><span class="n">B</span>  <span class="n">D</span>  <span class="n">L</span>                <span class="n">r</span>
-<span class="mi">0</span>  <span class="mi">3</span>  <span class="mi">0</span> <span class="mi">1</span> <span class="mi">2</span> <span class="mi">3</span> <span class="mi">4</span> <span class="mi">5</span> <span class="mi">6</span> <span class="mi">7</span>  <span class="mi">3</span>
-<span class="mi">1</span>  <span class="mi">1</span>  <span class="mi">0</span> <span class="mi">1</span> <span class="mi">2</span>   <span class="mi">4</span> <span class="mi">5</span> <span class="mi">6</span> <span class="mi">7</span>  <span class="mi">1</span>
-<span class="mi">2</span>  <span class="mi">6</span>  <span class="mi">0</span>   <span class="mi">2</span>   <span class="mi">4</span> <span class="mi">5</span> <span class="mi">6</span> <span class="mi">7</span>  <span class="mi">4</span>
-<span class="mi">3</span>  <span class="mi">5</span>  <span class="mi">0</span>   <span class="mi">2</span>   <span class="mi">4</span> <span class="mi">5</span>   <span class="mi">7</span>  <span class="mi">3</span>
-<span class="mi">4</span>  <span class="mi">0</span>  <span class="mi">0</span>   <span class="mi">2</span>   <span class="mi">4</span>     <span class="mi">7</span>  <span class="mi">0</span>
-<span class="mi">5</span>  <span class="mi">7</span>      <span class="mi">2</span>   <span class="mi">4</span>     <span class="mi">7</span>  <span class="mi">2</span>
-<span class="mi">6</span>  <span class="mi">4</span>      <span class="mi">2</span>   <span class="mi">4</span>        <span class="mi">1</span>
-<span class="mi">7</span>  <span class="mi">2</span>      <span class="mi">2</span>            <span class="mi">0</span>
-</pre></div>
-
+<div class="highlight"><pre><span></span><code>B  D  L                r
+0  3  0 1 2 3 4 5 6 7  3
+1  1  0 1 2   4 5 6 7  1
+2  6  0   2   4 5 6 7  4
+3  5  0   2   4 5   7  3
+4  0  0   2   4     7  0
+5  7      2   4     7  2
+6  4      2   4        1
+7  2      2            0
+</code></pre></div>
 
 <p>As you can see, our remainders are back. We can then use them to reconstruct the number.</p>
 <h2>From 1 table to 4</h2>
-<p>Now that we have a fully working strategy for 1 table, we can apply it to the 3 others. The first table gets us <code>8!</code> outputs, the second <code>9!</code>, and the two last <code>7!</code> and <code>4!</code> respectively.
-To merge these values into a bigger number, we can apply the same DIVMOD strategy that we did before:</p>
-<div class="highlight"><pre><span></span><span class="nv">@lotto</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">D</span><span class="o">[</span><span class="n">march</span><span class="o">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">8</span><span class="err">!</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">N</span><span class="o">[</span><span class="n">march</span><span class="o">]</span><span class="p">,</span><span class="w"> </span><span class="n">N</span><span class="o">[</span><span class="n">march</span><span class="o">]</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="o">[</span><span class="n">0, 8![</span>
-<span class="n">D[march</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">D</span><span class="o">[</span><span class="n">april</span><span class="o">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">9</span><span class="err">!</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">N</span><span class="o">[</span><span class="n">april</span><span class="o">]</span><span class="p">,</span><span class="w"> </span><span class="n">N</span><span class="o">[</span><span class="n">april</span><span class="o">]</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="o">[</span><span class="n">0, 9![</span>
-<span class="n">D[april</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">D</span><span class="o">[</span><span class="n">may</span><span class="o">]</span><span class="w">   </span><span class="o">*</span><span class="w"> </span><span class="mi">7</span><span class="err">!</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">N</span><span class="o">[</span><span class="n">may</span><span class="o">]</span><span class="p">,</span><span class="w">   </span><span class="n">N</span><span class="o">[</span><span class="n">may</span><span class="o">]</span><span class="w">   </span><span class="ow">in</span><span class="w"> </span><span class="o">[</span><span class="n">0, 7![</span>
-<span class="n">D[may</span><span class="o">]</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">D</span><span class="o">[</span><span class="n">june</span><span class="o">]</span><span class="w">  </span><span class="o">*</span><span class="w"> </span><span class="mi">4</span><span class="err">!</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">N</span><span class="o">[</span><span class="n">june</span><span class="o">]</span><span class="p">,</span><span class="w">  </span><span class="n">N</span><span class="o">[</span><span class="n">june</span><span class="o">]</span><span class="w">  </span><span class="ow">in</span><span class="w"> </span><span class="err">[</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="err">![</span><span class="w"></span>
-</pre></div>
-
+<p>Now that we have a fully working strategy for 1 table, we can apply it to the 3 others. The first table gets us <code>8!</code> outputs, the second <code>9!</code>, and the two last <code>7!</code> and <code>4!</code> respectively. To merge these values into a bigger number, we can apply the same DIVMOD strategy that we did before:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">@lotto</span><span class="w">  </span><span class="o">=</span><span class="w">  </span><span class="n">D</span><span class="o">[</span><span class="n">march</span><span class="o">]</span><span class="w">  </span><span class="o">*</span><span class="w">  </span><span class="mi">8</span><span class="err">!</span><span class="w">  </span><span class="o">+</span><span class="w">  </span><span class="n">N</span><span class="o">[</span><span class="n">march</span><span class="o">]</span><span class="p">,</span><span class="w">  </span><span class="n">N</span><span class="o">[</span><span class="n">march</span><span class="o">]</span><span class="w">  </span><span class="ow">in</span><span class="w">  </span><span class="o">[</span><span class="n">0, 8![</span>
+<span class="n">D[march</span><span class="o">]</span><span class="w">  </span><span class="o">=</span><span class="w">  </span><span class="n">D</span><span class="o">[</span><span class="n">april</span><span class="o">]</span><span class="w">  </span><span class="o">*</span><span class="w">  </span><span class="mi">9</span><span class="err">!</span><span class="w">  </span><span class="o">+</span><span class="w">  </span><span class="n">N</span><span class="o">[</span><span class="n">april</span><span class="o">]</span><span class="p">,</span><span class="w">  </span><span class="n">N</span><span class="o">[</span><span class="n">april</span><span class="o">]</span><span class="w">  </span><span class="ow">in</span><span class="w">  </span><span class="o">[</span><span class="n">0, 9![</span>
+<span class="n">D[april</span><span class="o">]</span><span class="w">  </span><span class="o">=</span><span class="w">  </span><span class="n">D</span><span class="o">[</span><span class="n">may</span><span class="o">]</span><span class="w">  </span><span class="o">*</span><span class="w">  </span><span class="mi">7</span><span class="err">!</span><span class="w">  </span><span class="o">+</span><span class="w">  </span><span class="n">N</span><span class="o">[</span><span class="n">may</span><span class="o">]</span><span class="p">,</span><span class="w">  </span><span class="n">N</span><span class="o">[</span><span class="n">may</span><span class="o">]</span><span class="w">  </span><span class="ow">in</span><span class="w">  </span><span class="o">[</span><span class="n">0, 7![</span>
+<span class="n">D[may</span><span class="o">]</span><span class="w">  </span><span class="o">=</span><span class="w">  </span><span class="n">D</span><span class="o">[</span><span class="n">june</span><span class="o">]</span><span class="w">  </span><span class="o">*</span><span class="w">  </span><span class="mi">4</span><span class="err">!</span><span class="w">  </span><span class="o">+</span><span class="w">  </span><span class="n">N</span><span class="o">[</span><span class="n">june</span><span class="o">]</span><span class="p">,</span><span class="w">  </span><span class="n">N</span><span class="o">[</span><span class="n">june</span><span class="o">]</span><span class="w">  </span><span class="ow">in</span><span class="w">  </span><span class="err">[</span><span class="mi">0</span><span class="p">,</span><span class="w">  </span><span class="mi">4</span><span class="err">![</span>
+</code></pre></div>
 
 <p>Since we only have 4 tables, <code>D[june]</code> cannot be determined, it's the part we leave up to luck. What are the potential values of <code>D[june]</code> ? Well, by definition, <code>D[june]</code> is the total possible values of @lotto, <code>36**12</code>, divided by the multiplication of previous divisors, <code>8!9!7!4!</code>. This gives us <code>36**12 / (8!9!7!4!) = 2677.34</code>, the number we expected to bruteforce !</p>
 <h1>Solving the math problem using MySQL</h1>
 <p>Now that we've got all our base math set up, we can try and solve the problem using our 4 SQL injections. Once again, we'll focus on the first table, as the others are similar.</p>
 <p>We already know how to convert the ticket into a base10 number (<code>CONV(@lotto, 36, 10)</code>), and the dates into sequential numbers, from 0 to 7 (<code>FIND_IN_SET(MID(date, 9), '01,03,05,10,13,18,23,28,30') - 1</code>).</p>
 <h2>Computing remainders</h2>
-<p>Building the list of <code>r8</code> to <code>r2</code> is easy; we can use a subquery and make aliases:
-Assuming <code>@v</code> is the number between <code>0</code> and <code>8!</code> that we need to bruteforce, we have:</p>
-<div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">inner_query</span><span class="o">&gt;</span><span class="p">:</span>
+<p>Building the list of <code>r8</code> to <code>r2</code> is easy; we can use a subquery and make aliases: Assuming <code>@v</code> is the number between <code>0</code> and <code>8!</code> that we need to bruteforce, we have:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&lt;</span><span class="n">inner_query</span><span class="o">&gt;</span><span class="p">:</span>
 <span class="p">(</span><span class="k">SELECT</span>
-    <span class="p">(</span> <span class="p">(</span><span class="o">@</span><span class="n">v</span>                  <span class="p">)</span> <span class="o">%</span> <span class="mi">8</span> <span class="p">)</span> <span class="n">r8</span><span class="p">,</span>
-    <span class="p">(</span> <span class="p">(</span><span class="o">@</span><span class="n">v</span> <span class="n">DIV</span> <span class="p">(</span><span class="mi">8</span>          <span class="p">))</span> <span class="o">%</span> <span class="mi">7</span> <span class="p">)</span> <span class="n">r7</span><span class="p">,</span>
-    <span class="p">(</span> <span class="p">(</span><span class="o">@</span><span class="n">v</span> <span class="n">DIV</span> <span class="p">(</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">7</span>     <span class="p">))</span> <span class="o">%</span> <span class="mi">6</span> <span class="p">)</span> <span class="n">r6</span><span class="p">,</span>
-    <span class="p">(</span> <span class="p">(</span><span class="o">@</span><span class="n">v</span> <span class="n">DIV</span> <span class="p">(</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">7</span> <span class="o">*</span> <span class="mi">6</span> <span class="p">))</span> <span class="o">%</span> <span class="mi">5</span> <span class="p">)</span> <span class="n">r5</span><span class="p">,</span>
-    <span class="p">...</span>
+<span class="w">    </span><span class="p">(</span><span class="w"> </span><span class="p">(</span><span class="o">@</span><span class="n">v</span><span class="w">                  </span><span class="p">)</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="n">r8</span><span class="p">,</span>
+<span class="w">    </span><span class="p">(</span><span class="w"> </span><span class="p">(</span><span class="o">@</span><span class="n">v</span><span class="w"> </span><span class="n">DIV</span><span class="w"> </span><span class="p">(</span><span class="mi">8</span><span class="w">          </span><span class="p">))</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">7</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="n">r7</span><span class="p">,</span>
+<span class="w">    </span><span class="p">(</span><span class="w"> </span><span class="p">(</span><span class="o">@</span><span class="n">v</span><span class="w"> </span><span class="n">DIV</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">7</span><span class="w">     </span><span class="p">))</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">6</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="n">r6</span><span class="p">,</span>
+<span class="w">    </span><span class="p">(</span><span class="w"> </span><span class="p">(</span><span class="o">@</span><span class="n">v</span><span class="w"> </span><span class="n">DIV</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">7</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">6</span><span class="w"> </span><span class="p">))</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="n">r5</span><span class="p">,</span>
+<span class="w">    </span><span class="p">...</span>
 <span class="p">)</span>
-</pre></div>
+</code></pre></div>
 
-
-<p>Now, we need to convert our remainders into valid indices, as we did in the above <a href="">Transmitting</a> part.</p>
+<p>Now, we need to convert our remainders into valid indices, as we did in the above Transmitting part.</p>
 <h2>Remainders to indices</h2>
 <p>We need to find a way to maintain a list of the remaining available indices, as well as isolate which indice corresponds to which remainder. Since MySQL does not handle arrays, a string seems to be a good candidate, as it allows us to work with a lot of string functions, such as <a href="https://dev.mysql.com/doc/refman/8.0/en/string-functions.html#function_mid">MID()</a> (i.e. <code>SUBSTR()</code>).</p>
-<div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">middle_query</span><span class="o">&gt;</span><span class="p">:</span>
-<span class="k">SELECT</span> 
-    <span class="o">@</span><span class="n">s9</span> <span class="p">:</span><span class="o">=</span> <span class="s1">&#39;01234567&#39;</span><span class="p">,</span>         <span class="c1">-- Initial &quot;array&quot; of remaining indices</span>
+<div class="highlight"><pre><span></span><code><span class="o">&lt;</span><span class="n">middle_query</span><span class="o">&gt;</span><span class="p">:</span>
+<span class="k">SELECT</span><span class="w"> </span>
+<span class="w">    </span><span class="o">@</span><span class="n">s9</span><span class="w"> </span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;01234567&#39;</span><span class="p">,</span><span class="w">         </span><span class="err">\</span><span class="o">-</span><span class="err">\</span><span class="o">-</span><span class="w"> </span><span class="n">Initial</span><span class="w"> </span><span class="ss">&quot;array&quot;</span><span class="w"> </span><span class="k">of</span><span class="w"> </span><span class="n">remaining</span><span class="w"> </span><span class="n">indices</span>
 
-    <span class="n">MID</span><span class="p">(</span><span class="o">@</span><span class="n">s9</span><span class="p">,</span> <span class="n">r8</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="n">i8</span><span class="p">,</span>    <span class="c1">-- We extract the indice i8 which corresponds to r8</span>
-    <span class="o">@</span><span class="n">s8</span> <span class="p">:</span><span class="o">=</span> <span class="n">CONCAT</span><span class="p">(</span>             <span class="c1">-- We build @s8, which contains remaining indices...</span>
-        <span class="n">MID</span><span class="p">(</span><span class="o">@</span><span class="n">s9</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">r8</span><span class="p">),</span>       <span class="c1">-- by removing the indice at position r8</span>
-        <span class="n">MID</span><span class="p">(</span><span class="o">@</span><span class="n">s9</span><span class="p">,</span> <span class="n">r8</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span>       <span class="c1">-- and we can repeat this ...</span>
-    <span class="p">),</span>                         <span class="c1">-- until r2</span>
+<span class="w">    </span><span class="n">MID</span><span class="p">(</span><span class="o">@</span><span class="n">s9</span><span class="p">,</span><span class="w"> </span><span class="n">r8</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="n">i8</span><span class="p">,</span><span class="w">    </span><span class="err">\</span><span class="o">-</span><span class="err">\</span><span class="o">-</span><span class="w"> </span><span class="n">We</span><span class="w"> </span><span class="k">extract</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">indice</span><span class="w"> </span><span class="n">i8</span><span class="w"> </span><span class="n">which</span><span class="w"> </span><span class="n">corresponds</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">r8</span>
+<span class="w">    </span><span class="o">@</span><span class="n">s8</span><span class="w"> </span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="n">CONCAT</span><span class="p">(</span><span class="w">             </span><span class="err">\</span><span class="o">-</span><span class="err">\</span><span class="o">-</span><span class="w"> </span><span class="n">We</span><span class="w"> </span><span class="n">build</span><span class="w"> </span><span class="o">@</span><span class="n">s8</span><span class="p">,</span><span class="w"> </span><span class="n">which</span><span class="w"> </span><span class="k">contains</span><span class="w"> </span><span class="n">remaining</span><span class="w"> </span><span class="n">indices</span><span class="p">...</span>
+<span class="w">        </span><span class="n">MID</span><span class="p">(</span><span class="o">@</span><span class="n">s9</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">r8</span><span class="p">),</span><span class="w">       </span><span class="err">\</span><span class="o">-</span><span class="err">\</span><span class="o">-</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="n">removing</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">indice</span><span class="w"> </span><span class="k">at</span><span class="w"> </span><span class="k">position</span><span class="w"> </span><span class="n">r8</span>
+<span class="w">        </span><span class="n">MID</span><span class="p">(</span><span class="o">@</span><span class="n">s9</span><span class="p">,</span><span class="w"> </span><span class="n">r8</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w">       </span><span class="err">\</span><span class="o">-</span><span class="err">\</span><span class="o">-</span><span class="w"> </span><span class="k">and</span><span class="w"> </span><span class="n">we</span><span class="w"> </span><span class="n">can</span><span class="w"> </span><span class="n">repeat</span><span class="w"> </span><span class="n">this</span><span class="w"> </span><span class="p">...</span>
+<span class="w">    </span><span class="p">),</span><span class="w">                         </span><span class="err">\</span><span class="o">-</span><span class="err">\</span><span class="o">-</span><span class="w"> </span><span class="k">until</span><span class="w"> </span><span class="n">r2</span>
 
-    <span class="n">MID</span><span class="p">(</span><span class="o">@</span><span class="n">s8</span><span class="p">,</span> <span class="n">r7</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="n">i7</span><span class="p">,</span>    <span class="c1">-- We extract the indice i7 which corresponds to r7 from the remaining array</span>
-    <span class="o">@</span><span class="n">s7</span> <span class="p">:</span><span class="o">=</span> <span class="n">CONCAT</span><span class="p">(</span>             <span class="c1">-- We build @s7, which contains remaining indices...</span>
-        <span class="n">MID</span><span class="p">(</span><span class="o">@</span><span class="n">s8</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">r7</span><span class="p">),</span>       <span class="c1">-- by removing the indice at position r7</span>
-        <span class="n">MID</span><span class="p">(</span><span class="o">@</span><span class="n">s8</span><span class="p">,</span> <span class="n">r7</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span>       <span class="c1">-- and so on</span>
-    <span class="p">),</span>
+<span class="w">    </span><span class="n">MID</span><span class="p">(</span><span class="o">@</span><span class="n">s8</span><span class="p">,</span><span class="w"> </span><span class="n">r7</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="n">i7</span><span class="p">,</span><span class="w">    </span><span class="err">\</span><span class="o">-</span><span class="err">\</span><span class="o">-</span><span class="w"> </span><span class="n">We</span><span class="w"> </span><span class="k">extract</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">indice</span><span class="w"> </span><span class="n">i7</span><span class="w"> </span><span class="n">which</span><span class="w"> </span><span class="n">corresponds</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">r7</span><span class="w"> </span><span class="k">from</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">remaining</span><span class="w"> </span><span class="nb">array</span>
+<span class="w">    </span><span class="o">@</span><span class="n">s7</span><span class="w"> </span><span class="p">:</span><span class="o">=</span><span class="w"> </span><span class="n">CONCAT</span><span class="p">(</span><span class="w">             </span><span class="err">\</span><span class="o">-</span><span class="err">\</span><span class="o">-</span><span class="w"> </span><span class="n">We</span><span class="w"> </span><span class="n">build</span><span class="w"> </span><span class="o">@</span><span class="n">s7</span><span class="p">,</span><span class="w"> </span><span class="n">which</span><span class="w"> </span><span class="k">contains</span><span class="w"> </span><span class="n">remaining</span><span class="w"> </span><span class="n">indices</span><span class="p">...</span>
+<span class="w">        </span><span class="n">MID</span><span class="p">(</span><span class="o">@</span><span class="n">s8</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">r7</span><span class="p">),</span><span class="w">       </span><span class="err">\</span><span class="o">-</span><span class="err">\</span><span class="o">-</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="n">removing</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">indice</span><span class="w"> </span><span class="k">at</span><span class="w"> </span><span class="k">position</span><span class="w"> </span><span class="n">r7</span>
+<span class="w">        </span><span class="n">MID</span><span class="p">(</span><span class="o">@</span><span class="n">s8</span><span class="p">,</span><span class="w"> </span><span class="n">r7</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w">       </span><span class="err">\</span><span class="o">-</span><span class="err">\</span><span class="o">-</span><span class="w"> </span><span class="k">and</span><span class="w"> </span><span class="n">so</span><span class="w"> </span><span class="k">on</span>
+<span class="w">    </span><span class="p">),</span>
 
-    <span class="p">...</span>
+<span class="w">    </span><span class="p">...</span>
 
-<span class="k">FROM</span> <span class="p">(</span>
-    <span class="o">&lt;</span><span class="n">inner_query</span><span class="o">&gt;</span>
+<span class="k">FROM</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="n">inner_query</span><span class="o">&gt;</span>
 <span class="p">)</span><span class="n">a</span>
-</pre></div>
+</code></pre></div>
 
-
-<p>We now have <code>i8</code> to <code>i2</code>, which are the column indices that correspond to our <code>r8</code> to <code>r2</code> remainders.
-We want the date with index <code>i8</code> to be in the first position; the date with index <code>i7</code> to be in the second position, and so on.
-To do so, we build a string which compares the current column with the expected indices:</p>
-<div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">outer_query</span><span class="o">&gt;</span><span class="p">:</span>
-<span class="k">SELECT</span> <span class="n">CONCAT</span><span class="p">(</span>
-    <span class="o">@</span><span class="n">x</span><span class="o">=</span><span class="n">i8</span><span class="p">,</span>
-    <span class="o">@</span><span class="n">x</span><span class="o">=</span><span class="n">i7</span><span class="p">,</span>
-    <span class="p">...</span>
-    <span class="o">@</span><span class="n">x</span><span class="o">=</span><span class="n">i2</span>
-<span class="p">)</span> <span class="k">FROM</span> <span class="p">(</span>
-    <span class="o">&lt;</span><span class="n">middle_query</span><span class="o">&gt;</span>
+<p>We now have <code>i8</code> to <code>i2</code>, which are the column indices that correspond to our <code>r8</code> to <code>r2</code> remainders. We want the date with index <code>i8</code> to be in the first position; the date with index <code>i7</code> to be in the second position, and so on. To do so, we build a string which compares the current column with the expected indices:</p>
+<div class="highlight"><pre><span></span><code><span class="o">&lt;</span><span class="n">outer_query</span><span class="o">&gt;</span><span class="p">:</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">CONCAT</span><span class="p">(</span>
+<span class="w">    </span><span class="o">@</span><span class="n">x</span><span class="o">=</span><span class="n">i8</span><span class="p">,</span>
+<span class="w">    </span><span class="o">@</span><span class="n">x</span><span class="o">=</span><span class="n">i7</span><span class="p">,</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">    </span><span class="o">@</span><span class="n">x</span><span class="o">=</span><span class="n">i2</span>
+<span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="n">middle_query</span><span class="o">&gt;</span>
 <span class="p">)</span><span class="n">b</span>
-</pre></div>
+</code></pre></div>
 
-
-<p>The resulting string will be something like <code>00001000</code> for each row, with the <code>1</code> indicating at which position the row should be on the list.
-When applied to the ORDER BY clause, those <code>00010000</code> numbers will be used to sort the rows, which will have the expected effect of putting each date at the correct position.
-For instance, if <code>i8=4</code>, the fourth date will yield this number: <code>10000000</code>, while the others won't have their MSB set. This means that the fourth date will have the highest number,
-and therefore be put first in the list.</p>
+<p>The resulting string will be something like <code>00001000</code> for each row, with the <code>1</code> indicating at which position the row should be on the list. When applied to the ORDER BY clause, those <code>00010000</code> numbers will be used to sort the rows, which will have the expected effect of putting each date at the correct position. For instance, if <code>i8=4</code>, the fourth date will yield this number: <code>10000000</code>, while the others won't have their MSB set. This means that the fourth date will have the highest number, and therefore be put first in the list.</p>
 <p>We're done !</p>
 <h1>Exploit</h1>
-<p><a href="https://github.com/cfreal/exploits/blob/master/gctf-2019-glotto/exploit.py">Here's the exploit</a>.
-Since there's a 5 seconds wait after checking if a ticket is valid, you should run around 10 of them concurrently, until you get a match.
-Also, there are a few tiny MySQL tricks hidden in the exploit, so you might benefit from reading it if you're new.</p>
+<p><a href="https://github.com/cfreal/exploits/blob/master/gctf-2019-glotto/exploit.py">Here's the exploit</a>. Since there's a 5 seconds wait after checking if a ticket is valid, you should run around 10 of them concurrently, until you get a match. Also, there are a few tiny MySQL tricks hidden in the exploit, so you might benefit from reading it if you're new.</p>
+
+
 </div>
 		</div>
 	</body>
